@@ -18,8 +18,8 @@ public:
     void print_book();
 
 private:
-    std::map<double, std::list<Order>> bids; // Descending
-    std::map<double, std::list<Order>> asks; // Ascending
+    std::map<double, std::list<Order>> bids;
+    std::map<double, std::list<Order>> asks;
     std::unordered_map<std::string, std::pair<double, OrderSide>> order_index;
 
     void match_order(const Order& order);

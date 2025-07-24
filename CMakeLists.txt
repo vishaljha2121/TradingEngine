@@ -9,4 +9,6 @@ add_executable(trading_engine
         src/main.cpp
         src/order.cpp
         src/order_book.cpp
+        tests/test_order_book.cpp
+        tests/test_order_book.hpp
 )
