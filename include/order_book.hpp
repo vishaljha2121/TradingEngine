@@ -15,6 +15,8 @@ class OrderBook {
 public:
     void add_order(const Order& order);
     void cancel_order(const std::string& order_id);
+    double get_best_bid() const;
+    double get_best_ask() const;
     void print_book();
 
 private:

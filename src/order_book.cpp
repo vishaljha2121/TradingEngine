@@ -141,6 +141,16 @@ void OrderBook::cancel_order(const std::string &order_id) {
     order_index.erase(it);
 }
 
+double OrderBook::get_best_bid() const {
+    if (bids.empty()) return 0.0;
+    return bids.rbegin()->first;
+}
+
+double OrderBook::get_best_ask() const {
+    if (asks.empty()) return 0.0;
+    return asks.begin()->first;
+}
+
 void OrderBook::print_book() {
     // Collect asks (lowest to highest)
     std::vector<std::pair<double, int> > asksVec;
