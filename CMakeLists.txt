@@ -10,10 +10,14 @@ include_directories(include)
 add_library(orderbook_lib
         src/order.cpp
         src/order_book.cpp
+        src/trade.cpp
+        include/trade.hpp
 )
 
 # Main executable (optional)
-add_executable(main_exec src/main.cpp)
+add_executable(main_exec src/main.cpp
+        src/trade.cpp
+        include/trade.hpp)
 target_link_libraries(main_exec orderbook_lib)
 
 # GoogleTest

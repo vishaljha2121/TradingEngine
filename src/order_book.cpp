@@ -107,6 +107,11 @@ void OrderBook::add_order(const Order &order) {
 void OrderBook::match_order(const Order &order) {
     Order incomingOrder = order;
 
+    if (incomingOrder.type == OrderType::MARKET) {
+        handle_market_order(incomingOrder);
+        return;
+    }
+
     auto &opposingBook = (incomingOrder.side == OrderSide::BUY) ? asks : bids;
     if (incomingOrder.side == OrderSide::BUY) {
         match_buy_order(incomingOrder, opposingBook);
@@ -149,6 +154,40 @@ double OrderBook::get_best_bid() const {
 double OrderBook::get_best_ask() const {
     if (asks.empty()) return 0.0;
     return asks.begin()->first;
+}
+
+void OrderBook::handle_market_order(Order &incomingOrder) {
+    auto &opposingBook = (incomingOrder.side == OrderSide::BUY) ? asks : bids;
+
+    while (!opposingBook.empty() && incomingOrder.quantity > 0) {
+        auto priceLevelIt = (incomingOrder.side == OrderSide::BUY) ? opposingBook.begin() : std::prev(opposingBook.end());
+        auto &orderQueue = priceLevelIt->second;
+        Order &restingOrder = orderQueue.front();
+
+        int tradedQty = std::min(incomingOrder.quantity, restingOrder.quantity);
+        std::cout << "TRADE: " << tradedQty << " @ " << restingOrder.price << std::endl;
+
+        incomingOrder.quantity -= tradedQty;
+        restingOrder.quantity -= tradedQty;
+
+        if (restingOrder.quantity == 0) {
+            orderQueue.pop_front();
+        }
+
+        if (orderQueue.empty()) {
+            opposingBook.erase(priceLevelIt);
+        }
+    }
+}
+
+long current_timestamp() {
+    return std::chrono::system_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
+}
+
+void OrderBook::record_trade(const std::string& buy_id, const std::string& sell_id, double price, int qty) {
+    std::string trade_id = "T" + std::to_string(trade_counter++);
+    Trade t(trade_id, buy_id, sell_id, price, qty, current_timestamp());
+    trade_log.push_back(t);
 }
 
 void OrderBook::print_book() {
