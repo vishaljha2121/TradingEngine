@@ -115,7 +115,7 @@ void OrderBook::match_order(const Order &order) {
     Order incomingOrder = order;
 
     if (incomingOrder.type == OrderType::MARKET) {
-        handle_market_order(incomingOrder);
+        handle_market_order(incomingOrder, this);
         return;
     }
 
@@ -163,7 +163,7 @@ double OrderBook::get_best_ask() const {
     return asks.begin()->first;
 }
 
-void OrderBook::handle_market_order(Order &incomingOrder) {
+void OrderBook::handle_market_order(Order &incomingOrder, OrderBook* bookPtr) {
     auto &opposingBook = (incomingOrder.side == OrderSide::BUY) ? asks : bids;
 
     while (!opposingBook.empty() && incomingOrder.quantity > 0) {
@@ -173,6 +173,11 @@ void OrderBook::handle_market_order(Order &incomingOrder) {
 
         int tradedQty = std::min(incomingOrder.quantity, restingOrder.quantity);
         std::cout << "TRADE: " << tradedQty << " @ " << restingOrder.price << std::endl;
+        if (incomingOrder.side == OrderSide::BUY) {
+            bookPtr->record_trade(incomingOrder.order_id, restingOrder.order_id, restingOrder.price, tradedQty);
+        } else {
+            bookPtr->record_trade(restingOrder.order_id, incomingOrder.order_id, restingOrder.price, tradedQty);
+        }
 
         incomingOrder.quantity -= tradedQty;
         restingOrder.quantity -= tradedQty;
@@ -194,7 +199,7 @@ long current_timestamp() {
 void OrderBook::record_trade(const std::string& buy_id, const std::string& sell_id, double price, int qty) {
     const std::string trade_id = "T" + std::to_string(trade_counter++);
     const Trade t(trade_id, buy_id, sell_id, price, qty, current_timestamp());
-    trade_log.push_back(t);
+    trade_log.record_trade(t);
 }
 
 void OrderBook::print_book() {

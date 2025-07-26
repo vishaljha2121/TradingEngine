@@ -11,13 +11,18 @@ add_library(orderbook_lib
         src/order.cpp
         src/order_book.cpp
         src/trade.cpp
+        src/trade_log.cpp
+        include/trade_log.hpp
         include/trade.hpp
 )
 
 # Main executable (optional)
-add_executable(main_exec src/main.cpp
+add_executable(main_exec
+        src/main.cpp
         src/trade.cpp
-        include/trade.hpp)
+        include/trade.hpp
+        include/trade_log.hpp
+        src/trade_log.cpp)
 target_link_libraries(main_exec orderbook_lib)
 
 # GoogleTest
@@ -41,3 +46,9 @@ add_custom_target(run_tests ALL
         DEPENDS test_order test_order_book
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 --coverage")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+endif()
+
