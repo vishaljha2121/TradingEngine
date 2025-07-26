@@ -22,12 +22,19 @@ namespace {
     void process_matches_at_price_level(
         Iterator priceLevelIt,
         Order &incomingOrder,
-        std::map<double, std::list<Order> > &opposingBook) {
+        std::map<double, std::list<Order> > &opposingBook,
+        OrderBook* bookPtr) {
         auto &restingOrderQueue = priceLevelIt->second;
         while (!restingOrderQueue.empty() && incomingOrder.quantity > 0) {
             Order &restingOrder = restingOrderQueue.front();
             int tradedQuantity = std::min(incomingOrder.quantity, restingOrder.quantity);
             std::cout << "TRADE: " << tradedQuantity << " @ " << restingOrder.price << std::endl;
+
+            if (incomingOrder.side == OrderSide::BUY) {
+                bookPtr->record_trade(incomingOrder.order_id, restingOrder.order_id, restingOrder.price, tradedQuantity);
+            } else {
+                bookPtr->record_trade(restingOrder.order_id, incomingOrder.order_id, restingOrder.price, tradedQuantity);
+            }
 
             incomingOrder.quantity -= tradedQuantity;
             restingOrder.quantity -= tradedQuantity;
@@ -48,7 +55,7 @@ namespace {
         }
     }
 
-    void match_buy_order(Order &incomingOrder, std::map<double, std::list<Order> > &asks) {
+    void match_buy_order(Order &incomingOrder, std::map<double, std::list<Order> > &asks, OrderBook* bookPtr) {
         for (auto it = asks.begin(); it != asks.end() && incomingOrder.quantity > 0;) {
             double askPrice = it->first;
 
@@ -56,7 +63,7 @@ namespace {
                 break;
             }
 
-            process_matches_at_price_level(it, incomingOrder, asks);
+            process_matches_at_price_level(it, incomingOrder, asks, bookPtr);
 
             // Reinitialize iterator after possible erase:
             it = asks.lower_bound(askPrice);
@@ -68,14 +75,14 @@ namespace {
         }
     }
 
-    void match_sell_order(Order &incomingOrder, std::map<double, std::list<Order> > &bids) {
+    void match_sell_order(Order &incomingOrder, std::map<double, std::list<Order> > &bids, OrderBook* bookPtr) {
         for (auto reverseIt = bids.rbegin(); reverseIt != bids.rend() && incomingOrder.quantity > 0;) {
             double bidPrice = reverseIt->first;
 
             if (incomingOrder.price > bidPrice) {
                 break;
             }
-            process_matches_at_price_level(reverseIt, incomingOrder, bids);
+            process_matches_at_price_level(reverseIt, incomingOrder, bids, bookPtr);
 
             // Recalculate reverse iterator after possible erase
             auto baseIt = reverseIt.base();
@@ -114,9 +121,9 @@ void OrderBook::match_order(const Order &order) {
 
     auto &opposingBook = (incomingOrder.side == OrderSide::BUY) ? asks : bids;
     if (incomingOrder.side == OrderSide::BUY) {
-        match_buy_order(incomingOrder, opposingBook);
+        match_buy_order(incomingOrder, opposingBook, this);
     } else {
-        match_sell_order(incomingOrder, opposingBook);
+        match_sell_order(incomingOrder, opposingBook, this);
     }
 
     if (incomingOrder.quantity > 0) {
@@ -185,8 +192,8 @@ long current_timestamp() {
 }
 
 void OrderBook::record_trade(const std::string& buy_id, const std::string& sell_id, double price, int qty) {
-    std::string trade_id = "T" + std::to_string(trade_counter++);
-    Trade t(trade_id, buy_id, sell_id, price, qty, current_timestamp());
+    const std::string trade_id = "T" + std::to_string(trade_counter++);
+    const Trade t(trade_id, buy_id, sell_id, price, qty, current_timestamp());
     trade_log.push_back(t);
 }
 

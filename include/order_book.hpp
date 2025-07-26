@@ -27,6 +27,7 @@ private:
     std::unordered_map<std::string, std::pair<double, OrderSide>> order_index;
     std::vector<Trade> trade_log;
     int trade_counter = 0;
+
     void match_order(const Order& incomingOrder);
     void handle_market_order(Order &incomingOrder);
 };
