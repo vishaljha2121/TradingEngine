@@ -19,6 +19,7 @@ public:
     double get_best_bid() const;
     double get_best_ask() const;
     void print_book();
+    void print_depth_snapshot() const;
     void record_trade(const std::string& buy_id, const std::string& sell_id, double price, int qty);
 
 private:

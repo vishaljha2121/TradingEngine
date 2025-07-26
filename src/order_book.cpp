@@ -240,3 +240,27 @@ void OrderBook::print_book() {
     std::cout << "+-----------+---------+-----------+---------+\n";
     std::cout << "   Price      Qty      Price      Qty\n";
 }
+
+void OrderBook::print_depth_snapshot() const {
+    std::cout << "----- Order Book Depth -----\n";
+
+    std::cout << "Asks:\n";
+    for (const auto &level : asks) {
+        double totalQty = 0;
+        for (const auto &order : level.second) {
+            totalQty += order.quantity;
+        }
+        std::cout << "Price: " << level.first << ", Quantity: " << totalQty << "\n";
+    }
+
+    std::cout << "Bids:\n";
+    for (auto it = bids.rbegin(); it != bids.rend(); ++it) {
+        double totalQty = 0;
+        for (const auto &order : it->second) {
+            totalQty += order.quantity;
+        }
+        std::cout << "Price: " << it->first << ", Quantity: " << totalQty << "\n";
+    }
+
+    std::cout << "----------------------------\n";
+}
