@@ -91,3 +91,62 @@ TEST(OrderBookTest, DepthSnapshotCorrectness) {
     EXPECT_EQ(snapshot.asks[102.0], 3);
 }
 
+TEST(OrderBookTest, CancelOpenOrder) {
+    OrderBook ob;
+    Order o("b1", 100.0, 10, OrderSide::BUY, 111);
+    ob.add_order(o);
+
+    EXPECT_TRUE(ob.cancel_order("b1"));          // should succeed
+    EXPECT_DOUBLE_EQ(ob.get_best_bid(), 0.0);    // order book empty
+    EXPECT_DOUBLE_EQ(ob.get_best_ask(), 0.0);
+
+    auto snap = ob.get_depth_snapshot();
+    EXPECT_EQ(snap.bids.count(100.0), 0);        // price level removed
+}
+
+TEST(OrderBookTest, CancelNonExistentOrder) {
+    OrderBook ob;
+    EXPECT_FALSE(ob.cancel_order("ghost"));      // nothing to cancel
+    EXPECT_DOUBLE_EQ(ob.get_best_bid(), 0.0);
+    EXPECT_DOUBLE_EQ(ob.get_best_ask(), 0.0);
+}
+
+TEST(OrderBookTest, CancelAlreadyFilledOrder) {
+    OrderBook ob;
+    Order s("s1", 100.0, 10, OrderSide::SELL, 1);
+    Order b("b1", 100.0, 10, OrderSide::BUY , 2);
+    ob.add_order(s);
+    ob.add_order(b);                             // matches & fills
+
+    EXPECT_FALSE(ob.cancel_order("b1"));         // cannot cancel filled order
+
+    const auto& trades = ob.get_trade_log().get_trades();
+    EXPECT_EQ(trades.size(), 1);                 // one trade recorded
+}
+
+TEST(OrderBookTest, CancelPartiallyFilledOrder) {
+    OrderBook ob;
+    ob.add_order(Order("s1", 100.0, 5 , OrderSide::SELL, 1));
+    ob.add_order(Order("b1", 100.0, 10, OrderSide::BUY , 2));  // 5 filled, 5 remain
+
+    EXPECT_TRUE(ob.cancel_order("b1"));          // cancel remaining 5
+
+    EXPECT_DOUBLE_EQ(ob.get_best_bid(), 0.0);
+    EXPECT_DOUBLE_EQ(ob.get_best_ask(), 0.0);
+
+    const auto& trades = ob.get_trade_log().get_trades();
+    ASSERT_EQ(trades.size(), 1);
+    EXPECT_EQ(trades[0].quantity, 5);            // only partial trade logged
+}
+
+TEST(OrderBookTest, CancelRemovesEmptyPriceLevel) {
+    OrderBook ob;
+    ob.add_order(Order("b1",  99.0, 10, OrderSide::BUY, 1));
+    ob.add_order(Order("b2", 100.0,  5, OrderSide::BUY, 2));
+
+    EXPECT_TRUE(ob.cancel_order("b1"));          // remove sole order at 99
+
+    auto snap = ob.get_depth_snapshot();
+    EXPECT_EQ(snap.bids.count(99.0) , 0);        // 99 price level gone
+    EXPECT_EQ(snap.bids[100.0]      , 5);        // 100 remains
+}
