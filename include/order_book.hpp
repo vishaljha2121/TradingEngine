@@ -33,15 +33,15 @@ public:
         DepthSnapshot snapshot;
         for (const auto& [price, orders] : bids) {
             int total_qty = 0;
-            for (const auto& o : orders) {
-                total_qty += o.quantity;
+            for (const auto& order : orders) {
+                total_qty += order.quantity;
             }
             snapshot.bids[price] = total_qty;
         }
         for (const auto& [price, orders] : asks) {
             int total_qty = 0;
-            for (const auto& o : orders) {
-                total_qty += o.quantity;
+            for (const auto& order : orders) {
+                total_qty += order.quantity;
             }
             snapshot.asks[price] = total_qty;
         }
