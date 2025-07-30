@@ -3,38 +3,34 @@
 #include "order_book.hpp"  // your OrderBook class header
 #include "order.hpp"       // your Order class header
 
-int main() {
-    OrderBook ob;
+void print_depth_snapshot(const DepthSnapshot& snapshot) {
+    std::cout << "Bids:\n";
+    for (const auto& [price, quantity] : snapshot.bids) {
+        std::cout << "Price: " << price << ", Quantity: " << quantity << "\n";
+    }
 
-    // Utility to get a current timestamp - you can customize as needed
-    auto now = []() -> long {
-        return std::chrono::system_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
-    };
+    std::cout << "Asks:\n";
+    for (const auto& [price, quantity] : snapshot.asks) {
+        std::cout << "Price: " << price << ", Quantity: " << quantity << "\n";
+    }
+}
 
-    // Add some buy orders
-    ob.add_order(Order("b1", 100.0, 10, OrderSide::BUY, now()));
-    ob.add_order(Order("b2", 101.0, 5, OrderSide::BUY, now()));
-    ob.add_order(Order("b3", 99.0, 15, OrderSide::BUY, now()));
+int main(int argc, char* argv[]) {
+    OrderBook orderBook;
 
-    // Add some sell orders
-    ob.add_order(Order("s1", 102.0, 10, OrderSide::SELL, now()));
-    ob.add_order(Order("s2", 99.0, 8, OrderSide::SELL, now()));
-    ob.add_order(Order("s3", 101.0, 12, OrderSide::SELL, now()));
+    // Prepopulate orders for demonstration (optional)
+    orderBook.add_order(Order("b1", 101.0, 10, OrderSide::BUY, 123456));
+    orderBook.add_order(Order("b2", 100.0, 5, OrderSide::BUY, 123457));
+    orderBook.add_order(Order("s1", 102.0, 7, OrderSide::SELL, 123458));
+    orderBook.add_order(Order("s2", 103.0, 3, OrderSide::SELL, 123459));
 
-    std::cout << "Initial order book:\n";
-    ob.print_book();
+    if (argc > 1 && std::string(argv[1]) == "depth") {
+        DepthSnapshot snapshot = orderBook.get_depth_snapshot();
+        print_depth_snapshot(snapshot);
+        return 0;
+    }
 
-    std::cout << "\nAdding a buy order that triggers matches:\n";
-
-    ob.add_order(Order("b4", 101.0, 20, OrderSide::BUY, now()));
-
-    ob.print_book();
-
-    std::cout << "\nCancel order 's1' (sell order at 102):\n";
-
-    ob.cancel_order("s1");
-
-    ob.print_book();
-
+    std::cout << "Usage: " << argv[0] << " depth\n";
     return 0;
 }
+

@@ -2,6 +2,7 @@
 #include <string>
 
 enum class OrderSide { BUY, SELL };
+enum class OrderType { LIMIT, MARKET };
 
 class Order {
 public:
@@ -11,6 +12,7 @@ public:
     OrderSide side;
     long timestamp;
     bool is_active;
+    OrderType type;
 
-    Order(std::string id, double pr, int qty, OrderSide s, long ts);
+    Order(std::string order_id, double price, int qty, OrderSide side, long timestamp, OrderType type = OrderType::LIMIT);
 };

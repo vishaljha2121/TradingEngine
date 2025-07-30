@@ -1,4 +1,4 @@
 #include "order.hpp"
 
-Order::Order(std::string id, double pr, int qty, OrderSide s, long ts)
-    : order_id(id), price(pr), quantity(qty), side(s), timestamp(ts), is_active(true) {}
+Order::Order(std::string id, double price, int qty, OrderSide order_side, long timestamp, OrderType order_type)
+    : order_id(id), price(price), quantity(qty), side(order_side), timestamp(timestamp), is_active(true), type(order_type) {}
