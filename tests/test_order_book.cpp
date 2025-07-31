@@ -3,12 +3,14 @@
 //
 
 #include <gtest/gtest.h>
+
+#include "cli_utils.hpp"
 #include "order_book.hpp"
 #include "trade_log.hpp"
 
 TEST(OrderBookTest, AddBuyOrder) {
     OrderBook ob;
-    Order o("b1", 100.0, 10, OrderSide::BUY, 123456);
+    Order o("b1", 100.0, 10, OrderSide::BUY, 123456, std::nullopt);
     ob.add_order(o);
 
     EXPECT_DOUBLE_EQ(ob.get_best_bid(), 100.0);
@@ -16,7 +18,7 @@ TEST(OrderBookTest, AddBuyOrder) {
 
 TEST(OrderBookTest, AddSellOrder) {
     OrderBook ob;
-    Order o("s1", 105.0, 10, OrderSide::SELL, 123456);
+    Order o("s1", 105.0, 10, OrderSide::SELL, 123456, std::nullopt);
     ob.add_order(o);
 
     EXPECT_DOUBLE_EQ(ob.get_best_ask(), 105.0);
@@ -24,8 +26,8 @@ TEST(OrderBookTest, AddSellOrder) {
 
 TEST(OrderBookTest, LimitOrderMatching) {
     OrderBook ob;
-    Order sellOrder("s1", 100.0, 10, OrderSide::SELL, 1234);
-    Order buyOrder("b1", 100.0, 10, OrderSide::BUY, 1235);
+    Order sellOrder("s1", 100.0, 10, OrderSide::SELL, 1234, std::nullopt);
+    Order buyOrder("b1", 100.0, 10, OrderSide::BUY, 1235, std::nullopt);
 
     ob.add_order(sellOrder);
     ob.add_order(buyOrder);
@@ -44,7 +46,7 @@ TEST(OrderBookTest, LimitOrderMatching) {
 
 TEST(OrderBookTest, MarketOrderMatching) {
     OrderBook ob;
-    Order sellOrder("s1", 100.0, 10, OrderSide::SELL, 1234);
+    Order sellOrder("s1", 100.0, 10, OrderSide::SELL, 1234, std::nullopt);
     ob.add_order(sellOrder);
 
     Order marketBuy("b1", 0.0, 10, OrderSide::BUY, 1235, OrderType::MARKET);
@@ -63,8 +65,8 @@ TEST(OrderBookTest, MarketOrderMatching) {
 
 TEST(OrderBookTest, PartialFillLeavesRemaining) {
     OrderBook ob;
-    Order sellOrder("s1", 100.0, 5, OrderSide::SELL, 1234);
-    Order buyOrder("b1", 100.0, 10, OrderSide::BUY, 1235);
+    Order sellOrder("s1", 100.0, 5, OrderSide::SELL, 1234, std::nullopt);
+    Order buyOrder("b1", 100.0, 10, OrderSide::BUY, 1235, std::nullopt);
 
     ob.add_order(sellOrder);
     ob.add_order(buyOrder);
@@ -79,10 +81,10 @@ TEST(OrderBookTest, PartialFillLeavesRemaining) {
 
 TEST(OrderBookTest, DepthSnapshotCorrectness) {
     OrderBook ob;
-    ob.add_order(Order("b1", 99.0, 10, OrderSide::BUY, 1000));
-    ob.add_order(Order("b2", 100.0, 5, OrderSide::BUY, 1001));
-    ob.add_order(Order("s1", 101.0, 7, OrderSide::SELL, 1002));
-    ob.add_order(Order("s2", 102.0, 3, OrderSide::SELL, 1003));
+    ob.add_order(Order("b1", 99.0, 10, OrderSide::BUY, 1000, std::nullopt));
+    ob.add_order(Order("b2", 100.0, 5, OrderSide::BUY, 1001, std::nullopt));
+    ob.add_order(Order("s1", 101.0, 7, OrderSide::SELL, 1002, std::nullopt));
+    ob.add_order(Order("s2", 102.0, 3, OrderSide::SELL, 1003, std::nullopt));
 
     auto snapshot = ob.get_depth_snapshot();
     EXPECT_EQ(snapshot.bids[100.0], 5);
@@ -93,7 +95,7 @@ TEST(OrderBookTest, DepthSnapshotCorrectness) {
 
 TEST(OrderBookTest, CancelOpenOrder) {
     OrderBook ob;
-    Order o("b1", 100.0, 10, OrderSide::BUY, 111);
+    Order o("b1", 100.0, 10, OrderSide::BUY, 111, 2);
     ob.add_order(o);
 
     EXPECT_TRUE(ob.cancel_order("b1"));          // should succeed
@@ -113,8 +115,8 @@ TEST(OrderBookTest, CancelNonExistentOrder) {
 
 TEST(OrderBookTest, CancelAlreadyFilledOrder) {
     OrderBook ob;
-    Order s("s1", 100.0, 10, OrderSide::SELL, 1);
-    Order b("b1", 100.0, 10, OrderSide::BUY , 2);
+    Order s("s1", 100.0, 10, OrderSide::SELL, 1, std::nullopt);
+    Order b("b1", 100.0, 10, OrderSide::BUY , 2, std::nullopt);
     ob.add_order(s);
     ob.add_order(b);                             // matches & fills
 
@@ -126,8 +128,8 @@ TEST(OrderBookTest, CancelAlreadyFilledOrder) {
 
 TEST(OrderBookTest, CancelPartiallyFilledOrder) {
     OrderBook ob;
-    ob.add_order(Order("s1", 100.0, 5 , OrderSide::SELL, 1));
-    ob.add_order(Order("b1", 100.0, 10, OrderSide::BUY , 2));  // 5 filled, 5 remain
+    ob.add_order(Order("s1", 100.0, 5 , OrderSide::SELL, 1, std::nullopt));
+    ob.add_order(Order("b1", 100.0, 10, OrderSide::BUY , 2, std::nullopt));  // 5 filled, 5 remain
 
     EXPECT_TRUE(ob.cancel_order("b1"));          // cancel remaining 5
 
@@ -141,8 +143,8 @@ TEST(OrderBookTest, CancelPartiallyFilledOrder) {
 
 TEST(OrderBookTest, CancelRemovesEmptyPriceLevel) {
     OrderBook ob;
-    ob.add_order(Order("b1",  99.0, 10, OrderSide::BUY, 1));
-    ob.add_order(Order("b2", 100.0,  5, OrderSide::BUY, 2));
+    ob.add_order(Order("b1",  99.0, 10, OrderSide::BUY, 1, std::nullopt));
+    ob.add_order(Order("b2", 100.0,  5, OrderSide::BUY, 2, std::nullopt));
 
     EXPECT_TRUE(ob.cancel_order("b1"));          // remove sole order at 99
 
@@ -150,3 +152,70 @@ TEST(OrderBookTest, CancelRemovesEmptyPriceLevel) {
     EXPECT_EQ(snap.bids.count(99.0) , 0);        // 99 price level gone
     EXPECT_EQ(snap.bids[100.0]      , 5);        // 100 remains
 }
+
+TEST(OrderBookTest, OrderExpiresAndIsRemoved) {
+    OrderBook ob;
+    long now_ms  = current_timestamp();
+    long exp_ms  = now_ms + 100;                    // TTL = 100 ms
+
+    // Add BUY limit order that will expire in 100 ms
+    Order o("b1", 100.0, 10, OrderSide::BUY, now_ms, exp_ms);
+    ob.add_order(o);
+
+    // Before expiry it is the best bid
+    EXPECT_DOUBLE_EQ(ob.get_best_bid(), 100.0);
+
+    // Advance time past expiry and purge
+    size_t purged = ob.purge_expired(exp_ms + 1);
+    EXPECT_EQ(purged, 1u);                          // exactly one removed
+
+    // Order book should now be empty on bid side
+    EXPECT_DOUBLE_EQ(ob.get_best_bid(), 0.0);
+
+    // Attempting to cancel should fail (already expired)
+    EXPECT_FALSE(ob.cancel_order("b1"));
+}
+
+TEST(OrderBookTest, ExpiredOrderDoesNotTradeLater) {
+    OrderBook ob;
+    long now_ms = current_timestamp();
+
+    // BUY order that expires very soon
+    Order buy("b1", 100.0, 10, OrderSide::BUY, now_ms, now_ms + 50);
+    ob.add_order(buy);
+
+    // Fast-forward beyond expiry
+    ob.purge_expired(now_ms + 100);
+
+    // Now submit a SELL order at the same price
+    Order sell("s1", 100.0, 10, OrderSide::SELL, now_ms + 100, std::nullopt);
+    ob.add_order(sell);
+
+    // No trade should have occurred because buy order was gone
+    const auto& trades = ob.get_trade_log().get_trades();
+    EXPECT_EQ(trades.size(), 0u);
+
+    // Only the sell order should be resting as best ask
+    EXPECT_DOUBLE_EQ(ob.get_best_ask(), 100.0);
+    EXPECT_DOUBLE_EQ(ob.get_best_bid(),  0.0);
+}
+
+TEST(OrderBookTest, CancelExpiredOrderFails) {
+    OrderBook ob;
+    long now_ms = current_timestamp();
+
+    Order o("b1", 101.0, 5, OrderSide::BUY, now_ms, now_ms + 10);
+    ob.add_order(o);
+
+    // Let it expire
+    ob.purge_expired(now_ms + 20);
+
+    // cancel_order should return false because status is Expired
+    EXPECT_FALSE(ob.cancel_order("b1"));
+
+    // Depth snapshot must show no active orders
+    auto snap = ob.get_depth_snapshot();
+    EXPECT_TRUE(snap.bids.empty());
+    EXPECT_TRUE(snap.asks.empty());
+}
+

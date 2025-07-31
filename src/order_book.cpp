@@ -296,3 +296,36 @@ void OrderBook::print_depth_snapshot() const {
 
     std::cout << "----------------------------\n";
 }
+
+size_t OrderBook::purge_expired(long now_ms)
+{
+    size_t purgedOrderCount = 0;
+
+    auto sweepSide = [&](auto& bookSide)
+    {
+        for (auto bookIt = bookSide.begin(); bookIt != bookSide.end(); ) {
+            auto& restingOrderQueue = bookIt->second;
+            for (auto it = restingOrderQueue.begin(); it != restingOrderQueue.end(); ) {
+                Order& order = *it;
+                if (order.status == OrderStatus::ACTIVE &&
+                    order.expiry_ms && *order.expiry_ms <= now_ms)
+                {
+                    order.status = OrderStatus::EXPIRED;
+                    order_index.erase(order.order_id);
+                    it  = restingOrderQueue.erase(it);
+                    ++purgedOrderCount;
+                    continue;
+                }
+                ++it;
+            }
+            if (restingOrderQueue.empty())
+                bookIt = bookSide.erase(bookIt);
+            else
+                ++bookIt;
+        }
+    };
+
+    sweepSide(bids);
+    sweepSide(asks);
+    return purgedOrderCount;
+}

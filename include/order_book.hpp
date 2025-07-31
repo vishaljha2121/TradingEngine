@@ -47,6 +47,7 @@ public:
         }
         return snapshot;
     }
+    size_t purge_expired(long now_ms);
 
 private:
     std::map<double, std::list<Order>> bids;
