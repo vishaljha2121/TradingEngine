@@ -22,7 +22,9 @@ add_executable(main_exec
         src/trade.cpp
         include/trade.hpp
         include/trade_log.hpp
-        src/trade_log.cpp)
+        src/trade_log.cpp
+        src/cli_utils.cpp
+        include/cli_utils.hpp)
 target_link_libraries(main_exec orderbook_lib)
 
 # GoogleTest
