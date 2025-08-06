@@ -59,6 +59,30 @@ add_limit sell 99 1
 print_depth        # buy order auto-removed, only new sell shown
 print_trades       # no trades (because order had expired)
 ```
+## 💾 Snapshot Persistence (Milestone #3)
+
+You can now save and load the active order book to/from a file.
+
+### Save snapshot to disk:
+```bash
+save_snapshot data/book_snapshot.json
+```
+
+### Load snapshot from file:
+```bash
+load_snapshot data/book_snapshot.json
+```
+
+Only ACTIVE orders are saved, preserving:
+- `id`, `side`, `price`, `quantity`, `timestamp`, and `expiry`.
+
+Snapshots are stored in the `data/` directory. The book is auto-saved on quit.
+
+### Unit Test Coverage
+- `OrderBookTest.SaveAndLoadPreservesOrders`
+- `OrderBookTest.SnapshotIgnoresInactiveOrders`
+- `OrderBookTest.LoadFromInvalidFileThrows`
+- `OrderBookTest.LoadFromNonexistentFileThrows`
 
 ## 🧠 Project Structure
 

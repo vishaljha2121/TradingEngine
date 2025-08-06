@@ -5,8 +5,14 @@
 #include <gtest/gtest.h>
 
 #include "cli_utils.hpp"
+#include "json.hpp"
 #include "order_book.hpp"
 #include "trade_log.hpp"
+
+class OrderBookTest : public ::testing::Test {
+protected:
+    OrderBook ob;
+};
 
 TEST(OrderBookTest, AddBuyOrder) {
     OrderBook ob;
@@ -219,3 +225,157 @@ TEST(OrderBookTest, CancelExpiredOrderFails) {
     EXPECT_TRUE(snap.asks.empty());
 }
 
+TEST(OrderBookTest, SnapshotPersistence) {
+    using namespace std;
+    using namespace std::filesystem;
+
+    OrderBook ob;
+
+    // Add BUY order
+    Order o1("id1", 100.0, 10, OrderSide::BUY, current_timestamp(), std::nullopt);
+    ob.add_order(o1);
+
+    // Add SELL order
+    Order o2("id2", 105.0, 5, OrderSide::SELL, current_timestamp(), std::nullopt);
+    ob.add_order(o2);
+
+    // Save snapshot
+    std::string snapshot_file = "../snapshots/test_snapshot.json";
+    ob.save_snapshot(snapshot_file);
+
+    ASSERT_TRUE(std::filesystem::exists(snapshot_file)) << "Snapshot file was not created.";
+
+    // Capture original depth snapshot
+    DepthSnapshot before = ob.get_depth_snapshot();
+
+    // Clear book by constructing a new one
+    OrderBook ob_restored;
+    ob_restored.load_snapshot(snapshot_file);
+
+    // Capture restored snapshot
+    DepthSnapshot after = ob_restored.get_depth_snapshot();
+
+    // Check bids
+    ASSERT_EQ(before.bids.size(), after.bids.size());
+    for (const auto& [price, qty] : before.bids) {
+        ASSERT_EQ(after.bids.at(price), qty);
+    }
+
+    // Check asks
+    ASSERT_EQ(before.asks.size(), after.asks.size());
+    for (const auto& [price, qty] : before.asks) {
+        ASSERT_EQ(after.asks.at(price), qty);
+    }
+
+    // Clean up
+    std::filesystem::remove(snapshot_file);
+}
+
+TEST(OrderBookTest, LoadFromNonExistentFile) {
+    OrderBook book;
+    bool success = book.load_snapshot("data/does_not_exist.json");
+    ASSERT_FALSE(success);
+}
+
+TEST(OrderBookTest, LoadFromMalformedFile) {
+    const std::string filepath = "../snapshots/malformed_snapshot.json";
+
+    // Write invalid JSON to file
+    std::ofstream out(filepath);
+    out << "{ this is not valid json ";
+    out.close();
+
+    OrderBook book;
+    bool success = book.load_snapshot(filepath);
+    ASSERT_FALSE(success);
+
+    // Clean up
+    std::filesystem::remove(filepath);
+}
+
+TEST(OrderBookTest, LoadSnapshotThenPurgeExpiredOrders) {
+    OrderBook ob;
+
+    long now = current_timestamp();
+    long past = now - 10000; // 10 seconds ago
+    long future = now + 60000; // 60 seconds in the future
+
+    Order expired("expired", 100.0, 10, OrderSide::BUY, past - 10000, past);
+    Order valid("valid", 100.0, 20, OrderSide::BUY, now, future);
+
+    ob.add_order(expired);
+    ob.add_order(valid);
+
+    ob.save_snapshot("../snapshots/temp_snapshot_expiry.json");
+
+    OrderBook loaded;
+    loaded.load_snapshot("../snapshots/temp_snapshot_expiry.json");
+
+    loaded.purge_expired(now);
+
+    auto bids = loaded.get_bids();
+    ASSERT_EQ(bids.size(), 1);
+    EXPECT_EQ(bids.begin()->second.front().order_id, "valid");
+
+    // Clean up
+    std::filesystem::remove("../snapshots/temp_snapshot_expiry.json");
+}
+
+TEST (OrderBookTest, SaveSnapshotSkipsInactiveOrders) {
+    OrderBook ob;
+
+    Order active("active", 100.0, 10, OrderSide::BUY, current_timestamp(), std::nullopt);
+    Order inactive("inactive", 101.0, 5, OrderSide::BUY, current_timestamp(), std::nullopt);
+
+    ob.add_order(active);
+    ob.add_order(inactive);
+    ob.cancel_order("inactive");
+
+    ob.save_snapshot("../snapshots/temp_snapshot_expiry.json");
+
+    std::ifstream in("../snapshots/temp_snapshot_expiry.json");
+    nlohmann::json j;
+    in >> j;
+
+    for (const auto& entry : j) {
+        EXPECT_NE(entry["id"], "inactive");
+    }
+
+    // Clean up
+    std::filesystem::remove("../snapshots/temp_snapshot_expiry.json");
+}
+
+TEST(OrderBookTest, SaveLoadEmptySnapshot) {
+    OrderBook ob;
+    ob.save_snapshot("../snapshots/temp_snapshot_expiry.json");
+
+    OrderBook loaded;
+    EXPECT_NO_THROW(loaded.load_snapshot("../snapshots/temp_snapshot_expiry.json"));
+
+    EXPECT_TRUE(loaded.get_bids().empty());
+    EXPECT_TRUE(loaded.get_asks().empty());
+}
+
+TEST(OrderBookTest, LoadSnapshotPreservesOrderFields) {
+    OrderBook ob;
+
+    Order o1("A1", 99.5, 15, OrderSide::SELL, current_timestamp(), current_timestamp() + 10000);
+    ob.add_order(o1);
+    ob.save_snapshot("../snapshots/temp_snapshot_expiry.json");
+
+    OrderBook loaded;
+    loaded.load_snapshot("../snapshots/temp_snapshot_expiry.json");
+
+    auto asks = loaded.get_asks();
+    ASSERT_EQ(asks.size(), 1);
+    const auto& loaded_order = asks.begin()->second.front();
+
+    EXPECT_EQ(loaded_order.order_id, "A1");
+    EXPECT_EQ(loaded_order.price, 99.5);
+    EXPECT_EQ(loaded_order.quantity, 15);
+    EXPECT_EQ(loaded_order.side, OrderSide::SELL);
+    EXPECT_TRUE(loaded_order.expiry_ms.has_value());
+
+    // Clean up
+    std::filesystem::remove("../snapshots/temp_snapshot_expiry.json");
+}

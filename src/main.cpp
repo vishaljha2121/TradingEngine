@@ -68,9 +68,33 @@ int main()
         else if (cmd == "print_depth")  orderBook.print_book();
         else if (cmd == "print_orders") print_orders(orderBook);
         else if (cmd == "print_trades") print_trades(orderBook.get_trade_log());
+        else if (cmd == "save_snapshot") {
+            std::string filename; ss >> filename;
+            if (filename.empty()) {
+                std::cout << "Usage: save_snapshot <filename>\n";
+                continue;
+            }
+            orderBook.save_snapshot("../snapshots/" + filename);
+            std::cout << "Snapshot saved to " << filename << '\n';
+        }
+        else if (cmd == "load_snapshot") {
+            std::string filename; ss >> filename;
+            if (filename.empty()) {
+                std::cout << "Usage: load_snapshot <filename>\n";
+                continue;
+            }
+            orderBook.load_snapshot("../snapshots/" + filename);
+            std::cout << "Snapshot loaded from " << filename << '\n';
+        }
         else if (cmd == "help")         print_help();
-        else if (cmd == "quit" || cmd == "exit" || cmd == "q") break;
-        else std::cout << "Unknown command — type 'help'\n";
+        else if (cmd == "quit" || cmd == "exit" || cmd == "q") {
+            orderBook.save_snapshot("../snapshots/autosave.json");
+            std::cout << "Saved snapshot to autosave.json\n";
+            break;
+        }
+        else {
+            std::cout << "Unknown command — type 'help'\n";
+        }
     }
 }
 

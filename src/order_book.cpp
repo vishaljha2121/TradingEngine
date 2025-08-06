@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <iomanip>
 #include <type_traits>
+#include <json.hpp>
+using json = nlohmann::json;
+
 
 namespace {
     template<typename T>
@@ -296,6 +299,63 @@ void OrderBook::print_depth_snapshot() const {
 
     std::cout << "----------------------------\n";
 }
+
+void OrderBook::save_snapshot(const std::string &filepath) const {
+    json j;
+
+    auto serialize_orders = [&](const std::map<double, std::list<Order>> &book, const std::string &sideStr) {
+        for (const auto &[price, orders] : book) {
+            for (const auto &order : orders) {
+                if (order.status == OrderStatus::ACTIVE) {
+                    json entry;
+                    entry["id"] = order.order_id;
+                    entry["side"] = sideStr;
+                    entry["price"] = order.price;
+                    entry["qty"] = order.quantity;
+                    entry["ts"] = order.timestamp;
+                    entry["expiry"] = order.expiry_ms ? *order.expiry_ms : 0;
+                    j.push_back(entry);
+                }
+            }
+        }
+    };
+
+    serialize_orders(bids, "BUY");
+    serialize_orders(asks, "SELL");
+
+    std::ofstream out(filepath);
+    if (!out.is_open()) {
+        std::cerr << "Failed to open snapshot file: " << filepath << "\n";
+        return;
+    }
+    out << j.dump(4);
+}
+
+bool OrderBook::load_snapshot(const std::string &filepath) {
+    std::ifstream in(filepath);
+    if (!in.is_open()) return false;
+
+    json j;
+    try {
+        in >> j;
+    } catch (json::parse_error& e) {
+        return false;
+    }
+
+    for (const auto& entry : j) {
+        Order o(
+            entry["id"],
+            entry["price"],
+            entry["qty"],
+            (entry["side"] == "BUY") ? OrderSide::BUY : OrderSide::SELL,
+            entry["ts"],
+            entry["expiry"] == 0 ? std::nullopt : std::make_optional(entry["expiry"])
+        );
+        add_order(o);
+    }
+    return true;
+}
+
 
 size_t OrderBook::purge_expired(long now_ms)
 {

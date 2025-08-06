@@ -25,6 +25,8 @@ public:
     double get_best_ask() const;
     void print_book();
     void print_depth_snapshot() const;
+    void save_snapshot(const std::string& filepath) const;
+    bool load_snapshot(const std::string& filepath);
     void record_trade(const std::string& buy_id, const std::string& sell_id, double price, int qty);
     const TradeLog& get_trade_log() const {
         return trade_log;
@@ -48,6 +50,12 @@ public:
         return snapshot;
     }
     size_t purge_expired(long now_ms);
+    std::map<double, std::list<Order>> get_bids() const {
+        return bids;
+    }
+    std::map<double, std::list<Order>> get_asks() const {
+        return asks;
+    }
 
 private:
     std::map<double, std::list<Order>> bids;
