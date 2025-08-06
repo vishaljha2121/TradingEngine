@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <iomanip>
 #include <type_traits>
+#include <json.hpp>
+using json = nlohmann::json;
+
 
 namespace {
     template<typename T>
@@ -296,6 +299,69 @@ void OrderBook::print_depth_snapshot() const {
 
     std::cout << "----------------------------\n";
 }
+
+void OrderBook::save_snapshot(const std::string &filepath) const {
+    json j;
+
+    auto serialize_orders = [&](const std::map<double, std::list<Order>> &book, const std::string &sideStr) {
+        for (const auto &[price, orders] : book) {
+            for (const auto &order : orders) {
+                if (order.status == OrderStatus::ACTIVE) {
+                    json entry;
+                    entry["id"] = order.order_id;
+                    entry["side"] = sideStr;
+                    entry["price"] = order.price;
+                    entry["qty"] = order.quantity;
+                    entry["ts"] = order.timestamp;
+                    entry["expiry"] = order.expiry_ms ? *order.expiry_ms : 0;
+                    j.push_back(entry);
+                }
+            }
+        }
+    };
+
+    serialize_orders(bids, "BUY");
+    serialize_orders(asks, "SELL");
+
+    std::ofstream out(filepath);
+    if (!out.is_open()) {
+        std::cerr << "Failed to open snapshot file: " << filepath << "\n";
+        return;
+    }
+    out << j.dump(4);
+}
+
+void OrderBook::load_snapshot(const std::string &filepath) {
+    std::ifstream in(filepath);
+    if (!in.is_open()) {
+        std::cerr << "Failed to open snapshot file.\n";
+        return;
+    }
+
+    json j;
+    in >> j;
+
+    // Clear current book
+    bids.clear();
+    asks.clear();
+    order_index.clear();
+
+    for (const auto &entry : j) {
+        std::string id = entry["id"];
+        std::string sideStr = entry["side"];
+        double price = entry["price"];
+        int qty = entry["qty"];
+        long ts = entry["ts"];
+        long expiry_val = entry["expiry"];
+        std::optional<long> expiry = expiry_val > 0 ? std::make_optional(expiry_val) : std::nullopt;
+
+        OrderSide side = (sideStr == "BUY") ? OrderSide::BUY : OrderSide::SELL;
+
+        Order order(id, price, qty, side, ts, expiry);
+        add_order(order);
+    }
+}
+
 
 size_t OrderBook::purge_expired(long now_ms)
 {

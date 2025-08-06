@@ -219,3 +219,48 @@ TEST(OrderBookTest, CancelExpiredOrderFails) {
     EXPECT_TRUE(snap.asks.empty());
 }
 
+TEST(OrderBookTest, SnapshotPersistence) {
+    using namespace std;
+    using namespace std::filesystem;
+
+    OrderBook ob;
+
+    // Add BUY order
+    Order o1("id1", 100.0, 10, OrderSide::BUY, current_timestamp(), std::nullopt);
+    ob.add_order(o1);
+
+    // Add SELL order
+    Order o2("id2", 105.0, 5, OrderSide::SELL, current_timestamp(), std::nullopt);
+    ob.add_order(o2);
+
+    // Save snapshot
+    std::string snapshot_file = "../snapshots/test_snapshot.json";
+    ob.save_snapshot(snapshot_file);
+
+    ASSERT_TRUE(std::filesystem::exists(snapshot_file)) << "Snapshot file was not created.";
+
+    // Capture original depth snapshot
+    DepthSnapshot before = ob.get_depth_snapshot();
+
+    // Clear book by constructing a new one
+    OrderBook ob_restored;
+    ob_restored.load_snapshot(snapshot_file);
+
+    // Capture restored snapshot
+    DepthSnapshot after = ob_restored.get_depth_snapshot();
+
+    // Check bids
+    ASSERT_EQ(before.bids.size(), after.bids.size());
+    for (const auto& [price, qty] : before.bids) {
+        ASSERT_EQ(after.bids.at(price), qty);
+    }
+
+    // Check asks
+    ASSERT_EQ(before.asks.size(), after.asks.size());
+    for (const auto& [price, qty] : before.asks) {
+        ASSERT_EQ(after.asks.at(price), qty);
+    }
+
+    // Clean up
+    std::filesystem::remove(snapshot_file);
+}

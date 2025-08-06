@@ -25,6 +25,8 @@ public:
     double get_best_ask() const;
     void print_book();
     void print_depth_snapshot() const;
+    void save_snapshot(const std::string& filepath) const;
+    void load_snapshot(const std::string& filepath);
     void record_trade(const std::string& buy_id, const std::string& sell_id, double price, int qty);
     const TradeLog& get_trade_log() const {
         return trade_log;
