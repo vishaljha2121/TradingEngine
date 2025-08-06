@@ -132,8 +132,12 @@ flowchart TD
     F1 --> G[OrderBook]
     F2 --> G
     C --> X[Cancel Handler]
+    B --> S1[Save Snapshot Handler]
+    B --> S2[Load Snapshot Handler]
     G --> H[Trade Logger]
     G --> Y[Order Expiry Checker]
+    G --> Z[Snapshot Persistence - JSON]
+
 ```
 ---
 
