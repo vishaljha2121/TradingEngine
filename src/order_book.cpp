@@ -23,7 +23,8 @@ namespace {
         Iterator priceLevelIt,
         Order &incomingOrder,
         std::map<double, std::list<Order> > &opposingBook,
-        OrderBook* bookPtr) {
+        OrderBook* bookPtr,
+        std::unordered_map<std::string, std::pair<double, OrderSide>> order_index) {
         auto &restingOrderQueue = priceLevelIt->second;
         while (!restingOrderQueue.empty() && incomingOrder.quantity > 0) {
             Order &restingOrder = restingOrderQueue.front();
@@ -40,7 +41,14 @@ namespace {
             restingOrder.quantity -= tradedQuantity;
 
             if (restingOrder.quantity == 0) {
+                restingOrder.status = OrderStatus::FILLED;
                 restingOrderQueue.pop_front();
+                order_index.erase(restingOrder.order_id);
+            }
+
+            if (incomingOrder.quantity == 0) {
+                incomingOrder.status = OrderStatus::FILLED;
+                order_index.erase(incomingOrder.order_id);
             }
         }
 
@@ -55,7 +63,7 @@ namespace {
         }
     }
 
-    void match_buy_order(Order &incomingOrder, std::map<double, std::list<Order> > &asks, OrderBook* bookPtr) {
+    void match_buy_order(Order &incomingOrder, std::map<double, std::list<Order> > &asks, OrderBook* bookPtr, std::unordered_map<std::string, std::pair<double, OrderSide>> order_index) {
         for (auto it = asks.begin(); it != asks.end() && incomingOrder.quantity > 0;) {
             double askPrice = it->first;
 
@@ -63,7 +71,7 @@ namespace {
                 break;
             }
 
-            process_matches_at_price_level(it, incomingOrder, asks, bookPtr);
+            process_matches_at_price_level(it, incomingOrder, asks, bookPtr, order_index);
 
             // Reinitialize iterator after possible erase:
             it = asks.lower_bound(askPrice);
@@ -75,14 +83,14 @@ namespace {
         }
     }
 
-    void match_sell_order(Order &incomingOrder, std::map<double, std::list<Order> > &bids, OrderBook* bookPtr) {
+    void match_sell_order(Order &incomingOrder, std::map<double, std::list<Order> > &bids, OrderBook* bookPtr, std::unordered_map<std::string, std::pair<double, OrderSide>> order_index) {
         for (auto reverseIt = bids.rbegin(); reverseIt != bids.rend() && incomingOrder.quantity > 0;) {
             double bidPrice = reverseIt->first;
 
             if (incomingOrder.price > bidPrice) {
                 break;
             }
-            process_matches_at_price_level(reverseIt, incomingOrder, bids, bookPtr);
+            process_matches_at_price_level(reverseIt, incomingOrder, bids, bookPtr, order_index);
 
             // Recalculate reverse iterator after possible erase
             auto baseIt = reverseIt.base();
@@ -98,10 +106,13 @@ namespace {
         const Order &order,
         std::map<double, std::list<Order> > &bids,
         std::map<double, std::list<Order> > &asks,
-        std::unordered_map<std::string, std::pair<double, OrderSide> > &order_index) {
-        auto &targetBook = (order.side == OrderSide::BUY) ? bids : asks;
-        targetBook[order.price].push_back(order);
-        order_index[order.order_id] = {order.price, order.side};
+        std::unordered_map<std::string, std::pair<double, OrderSide> > &order_index)
+    {
+        Order resting = order;
+        resting.status = OrderStatus::ACTIVE;
+        auto &targetBook = (resting.side == OrderSide::BUY) ? bids : asks;
+        targetBook[resting.price].push_back(resting);
+        order_index[resting.order_id] = {resting.price, resting.side};
     }
 }
 
@@ -115,15 +126,15 @@ void OrderBook::match_order(const Order &order) {
     Order incomingOrder = order;
 
     if (incomingOrder.type == OrderType::MARKET) {
-        handle_market_order(incomingOrder, this);
+        handle_market_order(incomingOrder, this, order_index);
         return;
     }
 
     auto &opposingBook = (incomingOrder.side == OrderSide::BUY) ? asks : bids;
     if (incomingOrder.side == OrderSide::BUY) {
-        match_buy_order(incomingOrder, opposingBook, this);
+        match_buy_order(incomingOrder, opposingBook, this, order_index);
     } else {
-        match_sell_order(incomingOrder, opposingBook, this);
+        match_sell_order(incomingOrder, opposingBook, this, order_index);
     }
 
     if (incomingOrder.quantity > 0) {
@@ -131,26 +142,35 @@ void OrderBook::match_order(const Order &order) {
     }
 }
 
-void OrderBook::cancel_order(const std::string &order_id) {
+bool OrderBook::cancel_order(const std::string &order_id) {
     auto it = order_index.find(order_id);
     if (it == order_index.end()) {
-        return;
+        return false;
     }
     auto [price, side] = it->second;
     auto &book = (side == OrderSide::BUY) ? bids : asks;
 
     auto queueIt = book.find(price);
     if (queueIt == book.end()) {
-        return;
+        return false;
     }
 
     auto &orderQueue = queueIt->second;
-    orderQueue.remove_if([&order_id](const Order &order) { return order.order_id == order_id; });
+    for (auto orderQueueIt = orderQueue.begin(); orderQueueIt != orderQueue.end(); ++orderQueueIt) {
+        if (orderQueueIt->order_id == order_id) {
+            if (orderQueueIt->status != OrderStatus::ACTIVE)
+                return false;
+            orderQueueIt->status = OrderStatus::CANCELLED;
+            orderQueue.erase(orderQueueIt);
+            break;
+        }
+    }
 
     if (orderQueue.empty()) {
         book.erase(price);
     }
     order_index.erase(it);
+    return true;
 }
 
 double OrderBook::get_best_bid() const {
@@ -163,7 +183,7 @@ double OrderBook::get_best_ask() const {
     return asks.begin()->first;
 }
 
-void OrderBook::handle_market_order(Order &incomingOrder, OrderBook* bookPtr) {
+void OrderBook::handle_market_order(Order &incomingOrder, OrderBook* bookPtr, std::unordered_map<std::string, std::pair<double, OrderSide>> order_index) {
     auto &opposingBook = (incomingOrder.side == OrderSide::BUY) ? asks : bids;
 
     while (!opposingBook.empty() && incomingOrder.quantity > 0) {
@@ -183,7 +203,14 @@ void OrderBook::handle_market_order(Order &incomingOrder, OrderBook* bookPtr) {
         restingOrder.quantity -= tradedQty;
 
         if (restingOrder.quantity == 0) {
+            restingOrder.status = OrderStatus::FILLED;
             orderQueue.pop_front();
+            order_index.erase(restingOrder.order_id);
+        }
+
+        if (incomingOrder.quantity == 0) {
+            incomingOrder.status = OrderStatus::FILLED;
+            order_index.erase(incomingOrder.order_id);
         }
 
         if (orderQueue.empty()) {
@@ -268,4 +295,37 @@ void OrderBook::print_depth_snapshot() const {
     }
 
     std::cout << "----------------------------\n";
+}
+
+size_t OrderBook::purge_expired(long now_ms)
+{
+    size_t purgedOrderCount = 0;
+
+    auto sweepSide = [&](auto& bookSide)
+    {
+        for (auto bookIt = bookSide.begin(); bookIt != bookSide.end(); ) {
+            auto& restingOrderQueue = bookIt->second;
+            for (auto it = restingOrderQueue.begin(); it != restingOrderQueue.end(); ) {
+                Order& order = *it;
+                if (order.status == OrderStatus::ACTIVE &&
+                    order.expiry_ms && *order.expiry_ms <= now_ms)
+                {
+                    order.status = OrderStatus::EXPIRED;
+                    order_index.erase(order.order_id);
+                    it  = restingOrderQueue.erase(it);
+                    ++purgedOrderCount;
+                    continue;
+                }
+                ++it;
+            }
+            if (restingOrderQueue.empty())
+                bookIt = bookSide.erase(bookIt);
+            else
+                ++bookIt;
+        }
+    };
+
+    sweepSide(bids);
+    sweepSide(asks);
+    return purgedOrderCount;
 }

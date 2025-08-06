@@ -20,7 +20,7 @@ struct DepthSnapshot {
 class OrderBook {
 public:
     void add_order(const Order& order);
-    void cancel_order(const std::string& order_id);
+    bool cancel_order(const std::string& order_id);
     double get_best_bid() const;
     double get_best_ask() const;
     void print_book();
@@ -33,20 +33,21 @@ public:
         DepthSnapshot snapshot;
         for (const auto& [price, orders] : bids) {
             int total_qty = 0;
-            for (const auto& o : orders) {
-                total_qty += o.quantity;
+            for (const auto& order : orders) {
+                total_qty += order.quantity;
             }
             snapshot.bids[price] = total_qty;
         }
         for (const auto& [price, orders] : asks) {
             int total_qty = 0;
-            for (const auto& o : orders) {
-                total_qty += o.quantity;
+            for (const auto& order : orders) {
+                total_qty += order.quantity;
             }
             snapshot.asks[price] = total_qty;
         }
         return snapshot;
     }
+    size_t purge_expired(long now_ms);
 
 private:
     std::map<double, std::list<Order>> bids;
@@ -56,7 +57,7 @@ private:
     int trade_counter = 0;
 
     void match_order(const Order& incomingOrder);
-    void handle_market_order(Order &incomingOrder, OrderBook* bookPtr);
+    void handle_market_order(Order &incomingOrder, OrderBook* bookPtr, std::unordered_map<std::string, std::pair<double, OrderSide>> order_index);
 };
 
 #endif //ORDER_BOOK_HPP

@@ -3,6 +3,7 @@
 
 enum class OrderSide { BUY, SELL };
 enum class OrderType { LIMIT, MARKET };
+enum class OrderStatus { ACTIVE, FILLED, CANCELLED, EXPIRED };
 
 class Order {
 public:
@@ -13,6 +14,22 @@ public:
     long timestamp;
     bool is_active;
     OrderType type;
+    OrderStatus status;
+    std::optional<long> expiry_ms;
 
-    Order(std::string order_id, double price, int qty, OrderSide side, long timestamp, OrderType type = OrderType::LIMIT);
+    Order(std::string order_id,
+        double price,
+        int qty,
+        OrderSide side,
+        long timestamp,
+        std::optional<long> exp = std::nullopt,
+        OrderType type = OrderType::LIMIT);
+
+    Order(const std::string &id,
+        double price,
+        int qty,
+        OrderSide side,
+        long timestamp,
+        OrderType type = OrderType::LIMIT,
+        std::optional<long> exp = std::nullopt);
 };

@@ -6,9 +6,9 @@
 #include "order.hpp"
 
 TEST(OrderTest, ConstructorInitialization) {
-    Order o("o1", 100.0, 10, OrderSide::BUY, 123456);
+    Order o("b1", 100.0, 10, OrderSide::BUY, 123456, std::nullopt);
 
-    EXPECT_EQ(o.order_id, "o1");
+    EXPECT_EQ(o.order_id, "b1");
     EXPECT_EQ(o.price, 100.0);
     EXPECT_EQ(o.quantity, 10);
     EXPECT_EQ(o.side, OrderSide::BUY);
