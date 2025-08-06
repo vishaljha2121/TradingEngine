@@ -50,6 +50,12 @@ public:
         return snapshot;
     }
     size_t purge_expired(long now_ms);
+    std::map<double, std::list<Order>> get_bids() const {
+        return bids;
+    }
+    std::map<double, std::list<Order>> get_asks() const {
+        return asks;
+    }
 
 private:
     std::map<double, std::list<Order>> bids;
