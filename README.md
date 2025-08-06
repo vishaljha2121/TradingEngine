@@ -19,6 +19,47 @@ The long-term vision is to evolve this into a full-fledged trading simulator and
 
 ---
 
+## 🚀 Features
+
+### ✅ Core Engine
+- Matching engine for limit and market orders (price-time priority).
+- Buy/sell order books with deep visibility into price levels.
+- Trade logging and event printing.
+- Full unit test suite using GoogleTest with 90%+ coverage.
+
+### 🔁 Order Lifecycle Management
+- `OrderStatus` enum: `Active`, `Filled`, `Cancelled`, `Expired`
+- **Fast O(1) order cancellation** using internal `order_index` for ID-based lookup.
+- **Order expiry feature** using optional `expiry_ms` field:
+    - TTL or absolute timestamp format.
+    - `purge_expired(now_ms)` called before every cycle to clean up stale orders.
+    - Expired orders are skipped during matching and can't be cancelled.
+- Comprehensive GTests for:
+    - Open, partial, filled, missing/duplicate IDs
+    - Expiry correctness & edge cases
+
+### 🖥️ Interactive CLI
+An easy-to-use command-line interface simulating exchange behavior.
+
+#### 🔧 Supported Commands:
+- `add_limit buy|sell <price> <qty> [ttl=N]`
+- `add_market buy|sell <qty>`
+- `cancel <order_id>`
+- `print_depth`
+- `print_orders`
+- `print_trades`
+- `help`, `quit`
+
+#### 🧪 Manual Testing Examples
+```bash
+add_limit buy 100 10 ttl=2
+print_depth        # shows order
+# wait ≥2 s
+add_limit sell 99 1
+print_depth        # buy order auto-removed, only new sell shown
+print_trades       # no trades (because order had expired)
+```
+
 ## 🧠 Project Structure
 
 ```
@@ -46,8 +87,11 @@ The long-term vision is to evolve this into a full-fledged trading simulator and
 
 - **Limit Order**: Executes at a specified price or better.
 - **Market Order**: Executes immediately at the best available price.
+- **Order Expiry (TTL)**: Limit orders can have a time-to-live (TTL) in milliseconds; once expired, they are purged before matching begins.
+- **Market Order**: Uses price-time priority to match opposing buy/sell orders; expired orders are skipped during matching.
 - **Matching Engine**: Matches opposing buy/sell orders using price-time priority.
 - **Trade Log**: Matched orders create a `Trade` object capturing transaction details.
+- **Order Lifecycle**: Orders can be Active, Filled, Cancelled, or Expired, tracked internally with fast lookups for cancellation or status updates.
 
 ---
 
@@ -55,7 +99,7 @@ The long-term vision is to evolve this into a full-fledged trading simulator and
 
 ```mermaid
 flowchart TD
-    A[Client] --> B[Order Entry API]
+    A[Client / CLI] --> B[Command Parser]
     B --> C[Order Router]
     C --> D[Order Validator]
     D --> E[Order Type Handler]
@@ -63,27 +107,10 @@ flowchart TD
     E --> F2[Limit Order Handler]
     F1 --> G[OrderBook]
     F2 --> G
+    C --> X[Cancel Handler]
     G --> H[Trade Logger]
+    G --> Y[Order Expiry Checker]
 ```
-
----
-
-## 📍 Milestones
-
-### ✅ Milestone 1: Core Matching Engine
-- [x] Support for **Market Orders** and **Limit Orders**
-- [x] Matching logic using price-time priority
-- [x] Structured **Trade** object with metadata
-- [x] Depth snapshot API (bids/asks)
-- [x] **Unit test coverage** with GoogleTest
-- [x] CLion code coverage integration
-
-### 🔜 Milestone 2: Engine API + Persistence
-- [ ] RESTful API for placing, canceling, and querying orders
-- [ ] State persistence with SQLite or JSON
-- [ ] WebSocket support for trade streaming
-- [ ] Engine restart with recovery from persistent storage
-
 ---
 
 ## ⚙️ How to Use
