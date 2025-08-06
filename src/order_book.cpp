@@ -331,35 +331,29 @@ void OrderBook::save_snapshot(const std::string &filepath) const {
     out << j.dump(4);
 }
 
-void OrderBook::load_snapshot(const std::string &filepath) {
+bool OrderBook::load_snapshot(const std::string &filepath) {
     std::ifstream in(filepath);
-    if (!in.is_open()) {
-        std::cerr << "Failed to open snapshot file.\n";
-        return;
-    }
+    if (!in.is_open()) return false;
 
     json j;
-    in >> j;
-
-    // Clear current book
-    bids.clear();
-    asks.clear();
-    order_index.clear();
-
-    for (const auto &entry : j) {
-        std::string id = entry["id"];
-        std::string sideStr = entry["side"];
-        double price = entry["price"];
-        int qty = entry["qty"];
-        long ts = entry["ts"];
-        long expiry_val = entry["expiry"];
-        std::optional<long> expiry = expiry_val > 0 ? std::make_optional(expiry_val) : std::nullopt;
-
-        OrderSide side = (sideStr == "BUY") ? OrderSide::BUY : OrderSide::SELL;
-
-        Order order(id, price, qty, side, ts, expiry);
-        add_order(order);
+    try {
+        in >> j;
+    } catch (json::parse_error& e) {
+        return false;
     }
+
+    for (const auto& entry : j) {
+        Order o(
+            entry["id"],
+            entry["price"],
+            entry["qty"],
+            (entry["side"] == "BUY") ? OrderSide::BUY : OrderSide::SELL,
+            entry["ts"],
+            entry["expiry"] == 0 ? std::nullopt : std::make_optional(entry["expiry"])
+        );
+        add_order(o);
+    }
+    return true;
 }
 
 

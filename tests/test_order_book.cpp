@@ -264,3 +264,25 @@ TEST(OrderBookTest, SnapshotPersistence) {
     // Clean up
     std::filesystem::remove(snapshot_file);
 }
+
+TEST(OrderBookTest, LoadFromNonExistentFile) {
+    OrderBook book;
+    bool success = book.load_snapshot("data/does_not_exist.json");
+    ASSERT_FALSE(success);
+}
+
+TEST(OrderBookTest, LoadFromMalformedFile) {
+    const std::string filepath = "../snapshots/malformed_snapshot.json";
+
+    // Write invalid JSON to file
+    std::ofstream out(filepath);
+    out << "{ this is not valid json ";
+    out.close();
+
+    OrderBook book;
+    bool success = book.load_snapshot(filepath);
+    ASSERT_FALSE(success);
+
+    // Clean up
+    std::filesystem::remove(filepath);
+}
