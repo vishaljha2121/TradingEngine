@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.14)
 project(OrderBook)
 
+find_package(Boost REQUIRED COMPONENTS system thread)
+include_directories(${Boost_INCLUDE_DIRS})
+
 set(CMAKE_CXX_STANDARD 17)
 
 # Include paths
@@ -14,6 +17,8 @@ add_library(orderbook_lib
         src/trade_log.cpp
         include/trade_log.hpp
         include/trade.hpp
+        src/rest_server.cpp
+        include/rest_server.hpp
 )
 
 # Main executable (optional)
@@ -24,7 +29,9 @@ add_executable(main_exec
         include/trade_log.hpp
         src/trade_log.cpp
         src/cli_utils.cpp
-        include/cli_utils.hpp)
+        include/cli_utils.hpp
+        src/rest_server.cpp
+        include/rest_server.hpp)
 target_link_libraries(main_exec orderbook_lib)
 
 # GoogleTest
@@ -54,3 +61,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
 endif()
 
+add_executable(rest_server src/rest_server.cpp)
+target_link_libraries(rest_server orderbook_lib ${Boost_LIBRARIES})
+
+find_package(Drogon CONFIG REQUIRED)
+
+target_link_libraries(rest_server
+        orderbook_lib
+        Drogon::Drogon
+)

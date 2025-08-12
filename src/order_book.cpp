@@ -357,10 +357,11 @@ bool OrderBook::load_snapshot(const std::string &filepath) {
 }
 
 
-size_t OrderBook::purge_expired(long now_ms)
+size_t OrderBook::purge_expired()
 {
+    long now_ms = current_timestamp();
     size_t purgedOrderCount = 0;
-
+    std::cout << "\nCALLING PURGE METHOD";
     auto sweepSide = [&](auto& bookSide)
     {
         for (auto bookIt = bookSide.begin(); bookIt != bookSide.end(); ) {
@@ -368,15 +369,17 @@ size_t OrderBook::purge_expired(long now_ms)
             for (auto it = restingOrderQueue.begin(); it != restingOrderQueue.end(); ) {
                 Order& order = *it;
                 if (order.status == OrderStatus::ACTIVE &&
-                    order.expiry_ms && *order.expiry_ms <= now_ms)
+                    order.expiry_ms &&
+                    now_ms >= (*order.expiry_ms))
                 {
                     order.status = OrderStatus::EXPIRED;
                     order_index.erase(order.order_id);
                     it  = restingOrderQueue.erase(it);
                     ++purgedOrderCount;
-                    continue;
                 }
-                ++it;
+                else {
+                    ++it;
+                }
             }
             if (restingOrderQueue.empty())
                 bookIt = bookSide.erase(bookIt);
@@ -389,3 +392,4 @@ size_t OrderBook::purge_expired(long now_ms)
     sweepSide(asks);
     return purgedOrderCount;
 }
+

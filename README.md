@@ -88,17 +88,25 @@ Snapshots are stored in the `data/` directory. The book is auto-saved on quit.
 
 ```
 .
-├── include/
-│   ├── order.hpp              # Order class (Limit & Market)
-│   ├── order_book.hpp         # Core matching logic
-│   ├── trade.hpp              # Trade struct
-├── src/
-│   ├── order.cpp
-│   ├── order_book.cpp
-│   ├── trade.cpp
-│   └── main.cpp               # Demo for adding & matching orders
-├── test/
-│   └── test_order_book.cpp    # Unit tests using GoogleTest
+include/
+├── cli_utils.hpp
+├── order.hpp
+├── order_book.hpp
+├── rest_server.hpp   
+├── trade.hpp
+├── trade_log.hpp
+src/
+├── cli_utils.cpp
+├── main.cpp
+├── order.cpp
+├── order_book.cpp
+├── rest_server.cpp   
+├── trade.cpp
+├── trade_log.cpp
+tests/
+├── test_order.cpp
+├── test_order_book.cpp
+
 ├── CMakeLists.txt
 └── README.md
 ```

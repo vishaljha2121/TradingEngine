@@ -8,6 +8,8 @@
 #include <map>
 #include <unordered_map>
 #pragma once
+#include <iostream>
+
 #include "order.hpp"
 #include "trade.hpp"
 #include "trade_log.hpp"
@@ -32,6 +34,7 @@ public:
         return trade_log;
     }
     DepthSnapshot get_depth_snapshot() const {
+        std::cout << "CALLING GET SNAPSHOT";
         DepthSnapshot snapshot;
         for (const auto& [price, orders] : bids) {
             int total_qty = 0;
@@ -49,7 +52,7 @@ public:
         }
         return snapshot;
     }
-    size_t purge_expired(long now_ms);
+    size_t purge_expired();
     std::map<double, std::list<Order>> get_bids() const {
         return bids;
     }
