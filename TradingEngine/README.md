@@ -68,6 +68,15 @@ To enhance the visualizer and provide tools for quantitative research, a hybrid 
 *   **What was implemented?** A deep integration routing the backtest reports (JSON telemetry + quantitative readouts) to an AI analysis endpoint.
 *   **Why?** For rapid iterative development, having an LLM review latency bottlenecks, structural code inefficiencies (like checking lock-free queues), or trading logic flaws directly from the playground UI accelerates the tuning of high-frequency strategies.
 
+### 4. Famous Strategy Templates (Candle-Based Backtesting)
+*   **What was implemented?** Four industry-standard trading strategies were built directly into the C++ backtester, each operating on historical candlestick data fetched from the [Gemini v2 Candles API](https://docs.gemini.com/rest-api#list-candles):
+    *   **SMA Crossover (10/30)** — Detects Golden Cross (buy) and Death Cross (sell) events between a short-period and long-period Simple Moving Average.
+    *   **RSI Mean Reversion (14-period)** — Identifies oversold (RSI < 30) and overbought (RSI > 70) conditions to trade counter-trend reversals.
+    *   **Bollinger Bands Breakout (20/2σ)** — Trades when price touches the lower band (buy) or upper band (sell), calculated as 2 standard deviations from a 20-period SMA.
+    *   **MACD Signal Line (12/26/9)** — Generates buy/sell signals when the MACD line (12-EMA minus 26-EMA) crosses above or below its 9-period signal line.
+*   **Why?** These are the most widely-taught and backtested strategies in quantitative finance. Offering them as one-click templates lets novice users immediately see how different strategies behave across different market conditions — without needing to understand the underlying indicator math.
+*   **Timeframe Selection:** Users can choose from 7 candle intervals (`1m`, `5m`, `15m`, `30m`, `1hr`, `6hr`, `1day`), allowing the same strategy to be evaluated across intraday scalping to daily swing-trading horizons.
+
 ---
 
 ## 📈 Summary of Telemetry Metrics
