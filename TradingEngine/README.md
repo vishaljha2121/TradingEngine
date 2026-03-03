@@ -47,6 +47,27 @@ To demonstrate systems-level optimizations, several techniques were implemented 
 *   **Why?** The OS thread scheduler normally moves application threads across different physical CPU cores dynamically to balance heat and power. Every time a thread changes physical cores, the CPU's local L1 cache is wiped. By pinning our `SpinWait` loop to the highest available processor (e.g., Core 7 on an 8-core machine), we guarantee the thread never context-switches, keeping the CPU cache perfectly "warm" with order data.
 *   **Fallback:** Core Affinity is a low-level OS feature. `TradingEngineBackgroundService` checks the OS environment using `OperatingSystem.IsWindows()` or `OperatingSystem.IsLinux()`. If the application is run on a local development machine running macOS (which restricts processor affinity binding), the engine gracefully falls back to a standard unbound thread and marks the telemetry panel as "Unpinned".
 
+## 🧪 Advanced Backtest Playground & Multi-Coin Integration
+
+To enhance the visualizer and provide tools for quantitative research, a hybrid backtesting environment was implemented:
+
+### 1. Dynamic Market Data (Python & Gemini API)
+*   **What was implemented?** A real-time data ingestion script (`fetch_gemini_data.py`) querying the live Gemini public API.
+*   **Why?** Order books need realistic, deep liquidity snapshots to test strategy impacts accurately. By supporting dynamic coin pairs (e.g., `BTC/USD`, `ETH/USD`, `SOL/USD`), the backtester evaluates strategies against current market conditions instantly. The frontend pulls this directly via a `/api/marketdata/{symbol}` endpoint.
+
+### 2. High-Performance Quantitative Engine (C++17)
+*   **What was implemented?** A bespoke C++ execution core parsing raw order book states and running dynamic, parameter-driven strategies (e.g., *Momentum / Trend*, *Spread Arbitrage*) with zero-overhead loops.
+*   **Why?** Backtesting requires processing thousands of simulated order executions in fractions of a second. The C++ core strictly handles logic and math, dumping the calculated JSON state back to the C# wrapper.
+*   **The Metrics:** The engine calculates industry-standard metrics:
+    *   **Total PnL:** The absolute value gained or lost purely on spread captures and price delta.
+    *   **Win Rate:** Percentage of placed orders that resolved profitably over the spread.
+    *   **Sharpe Ratio:** Evaluates strategy return against volatility risk logic.
+    *   **Max Drawdown:** Highlights the worst-case capital loss observed during the simulation path.
+
+### 3. Agentic LLM Strategy Feedback
+*   **What was implemented?** A deep integration routing the backtest reports (JSON telemetry + quantitative readouts) to an AI analysis endpoint.
+*   **Why?** For rapid iterative development, having an LLM review latency bottlenecks, structural code inefficiencies (like checking lock-free queues), or trading logic flaws directly from the playground UI accelerates the tuning of high-frequency strategies.
+
 ---
 
 ## 📈 Summary of Telemetry Metrics

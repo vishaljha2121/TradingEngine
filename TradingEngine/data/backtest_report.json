@@ -1,0 +1,12 @@
+{
+  "total_orders": 100,
+  "avg_latency_us": 1.73817,
+  "max_latency_us": 22.857,
+  "simulated_pnl": -0.327262,
+  "win_rate": 0.5,
+  "max_drawdown": 34.4338,
+  "sharpe_ratio": -0.075796,
+  "final_best_bid": 68330.9,
+  "final_best_ask": 68366,
+  "pnl_history": [6.83101, 13.6579, 20.4803, 27.2968, 34.1065, 27.2663, 20.413, 13.5208, 6.60354, -0.327262]
+}
