@@ -47,12 +47,24 @@ function App() {
 
     // Strategy Panel State
     const [playgroundSymbol, setPlaygroundSymbol] = useState<string>('btcusd');
-    const [strategyType, setStrategyType] = useState<string>('momentum');
+    const [strategyType, setStrategyType] = useState<string>('sma_crossover');
+    const [timeframe, setTimeframe] = useState<string>('1h');
     const [aggression, setAggression] = useState<string>('1.0');
     const [buyThreshold, setBuyThreshold] = useState<string>('0.0001');
     const [sellThreshold, setSellThreshold] = useState<string>('0.0001');
     const [chartData, setChartData] = useState<any[]>([]);
     const [strategyMetrics, setStrategyMetrics] = useState<any>(null);
+
+    const STRATEGY_INFO: Record<string, { name: string; description: string; icon: string }> = {
+        sma_crossover: { name: 'SMA Crossover', icon: '📈', description: 'Trades when short-period (10) moving average crosses above/below long-period (30) moving average. Golden cross = buy, Death cross = sell.' },
+        rsi_mean_reversion: { name: 'RSI Mean Reversion', icon: '🔄', description: 'Uses 14-period RSI to find oversold (<30) and overbought (>70) conditions. Buys dips, sells rallies.' },
+        bollinger_breakout: { name: 'Bollinger Bands', icon: '📊', description: 'Trades at 2 standard deviations from 20-period SMA. Buys at lower band touch, sells at upper band touch.' },
+        macd_signal: { name: 'MACD Signal', icon: '⚡', description: 'Uses 12/26 EMA crossover with 9-period signal line. Buys on bullish MACD cross, sells on bearish.' },
+        momentum: { name: 'Momentum / Trend', icon: '🚀', description: 'Orderbook-based momentum strategy using price thresholds and aggression multiplier.' },
+        spread_arbitrage: { name: 'Spread Arbitrage', icon: '💹', description: 'Captures the bid-ask spread on the orderbook. Works best in high-liquidity environments.' },
+    };
+
+    const isCandleStrategy = ['sma_crossover', 'rsi_mean_reversion', 'bollinger_breakout', 'macd_signal'].includes(strategyType);
 
     useEffect(() => {
         const fetchMarketData = async () => {
@@ -162,6 +174,7 @@ function App() {
                 body: JSON.stringify({
                     symbol: playgroundSymbol,
                     strategyType: strategyType,
+                    timeframe: timeframe,
                     aggression: parseFloat(aggression),
                     buyThreshold: parseFloat(buyThreshold),
                     sellThreshold: parseFloat(sellThreshold)
@@ -259,14 +272,43 @@ function App() {
                         )}
                     </div>
 
+                    {/* Famous Strategy Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                        {['sma_crossover', 'rsi_mean_reversion', 'bollinger_breakout', 'macd_signal'].map(key => (
+                            <div
+                                key={key}
+                                onClick={() => setStrategyType(key)}
+                                style={{
+                                    padding: '0.75rem',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    border: strategyType === key ? '2px solid #818cf8' : '1px solid var(--border-color)',
+                                    backgroundColor: strategyType === key ? 'rgba(129, 140, 248, 0.1)' : 'var(--bg-tertiary)',
+                                    transition: 'all 0.2s',
+                                    textAlign: 'center'
+                                }}
+                            >
+                                <div style={{ fontSize: '1.5rem' }}>{STRATEGY_INFO[key].icon}</div>
+                                <div style={{ fontSize: '0.85rem', fontWeight: 600, marginTop: '0.25rem' }}>{STRATEGY_INFO[key].name}</div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Strategy Description */}
+                    {STRATEGY_INFO[strategyType] && (
+                        <div style={{ padding: '0.75rem 1rem', marginBottom: '1rem', backgroundColor: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                            <strong style={{ color: '#38bdf8' }}>{STRATEGY_INFO[strategyType].icon} {STRATEGY_INFO[strategyType].name}:</strong> {STRATEGY_INFO[strategyType].description}
+                        </div>
+                    )}
+
                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '2rem' }}>
-                        <form className="order-entry" onSubmit={runCustomStrategy} style={{ maxHeight: '450px', overflowY: 'auto' }}>
+                        <form className="order-entry" onSubmit={runCustomStrategy} style={{ maxHeight: '500px', overflowY: 'auto' }}>
                             <div className="form-group" style={{ flexDirection: 'row', gap: '0.5rem' }}>
                                 <div style={{ flex: 1 }}>
                                     <label>Coin Selector</label>
                                     <select
                                         value={playgroundSymbol}
-                                        onChange={e => setPlaygroundSymbol(e.target.value)}
+                                        onChange={(e: any) => setPlaygroundSymbol(e.target.value)}
                                         style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-primary)', color: 'white', border: '1px solid var(--border-color)', borderRadius: '4px' }}
                                     >
                                         <option value="btcusd">BTC/USD</option>
@@ -278,28 +320,62 @@ function App() {
                                     <label>Strategy Module</label>
                                     <select
                                         value={strategyType}
-                                        onChange={e => setStrategyType(e.target.value)}
+                                        onChange={(e: any) => setStrategyType(e.target.value)}
                                         style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-primary)', color: 'white', border: '1px solid var(--border-color)', borderRadius: '4px' }}
                                     >
-                                        <option value="momentum">Momentum / Trend</option>
-                                        <option value="spread_arbitrage">Spread Arbitrage</option>
+                                        <optgroup label="📈 Famous Strategies (Candle-Based)">
+                                            <option value="sma_crossover">SMA Crossover (10/30)</option>
+                                            <option value="rsi_mean_reversion">RSI Mean Reversion (14)</option>
+                                            <option value="bollinger_breakout">Bollinger Bands Breakout</option>
+                                            <option value="macd_signal">MACD Signal Line</option>
+                                        </optgroup>
+                                        <optgroup label="📋 Orderbook Strategies">
+                                            <option value="momentum">Momentum / Trend</option>
+                                            <option value="spread_arbitrage">Spread Arbitrage</option>
+                                        </optgroup>
                                     </select>
                                 </div>
                             </div>
+
+                            {isCandleStrategy && (
+                                <div className="form-group">
+                                    <label>Timeframe</label>
+                                    <select
+                                        value={timeframe}
+                                        onChange={(e: any) => setTimeframe(e.target.value)}
+                                        style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--bg-primary)', color: 'white', border: '1px solid var(--border-color)', borderRadius: '4px' }}
+                                    >
+                                        <option value="1m">1 Minute</option>
+                                        <option value="5m">5 Minutes</option>
+                                        <option value="15m">15 Minutes</option>
+                                        <option value="30m">30 Minutes</option>
+                                        <option value="1hr">1 Hour</option>
+                                        <option value="6hr">6 Hours</option>
+                                        <option value="1day">1 Day</option>
+                                    </select>
+                                </div>
+                            )}
+
                             <div className="form-group">
                                 <label>Aggression / Sizing Multiplier</label>
-                                <input type="number" step="0.1" value={aggression} onChange={e => setAggression(e.target.value)} required />
+                                <input type="number" step="0.1" value={aggression} onChange={(e: any) => setAggression(e.target.value)} required />
                             </div>
-                            <div className="form-group">
-                                <label>Buy Activation Threshold (Offset)</label>
-                                <input type="number" step="0.0001" value={buyThreshold} onChange={e => setBuyThreshold(e.target.value)} required />
-                            </div>
-                            <div className="form-group">
-                                <label>Sell Activation Threshold (Offset)</label>
-                                <input type="number" step="0.0001" value={sellThreshold} onChange={e => setSellThreshold(e.target.value)} required />
-                            </div>
+
+                            {!isCandleStrategy && (
+                                <>
+                                    <div className="form-group">
+                                        <label>Buy Activation Threshold (Offset)</label>
+                                        <input type="number" step="0.0001" value={buyThreshold} onChange={(e: any) => setBuyThreshold(e.target.value)} required />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Sell Activation Threshold (Offset)</label>
+                                        <input type="number" step="0.0001" value={sellThreshold} onChange={(e: any) => setSellThreshold(e.target.value)} required />
+                                    </div>
+                                </>
+                            )}
+
                             <button type="submit" className="btn btn-primary" disabled={isRunningAi} style={{ marginTop: '1rem', width: '100%', backgroundColor: '#4f46e5' }}>
-                                Run C++ Backtest Simulation
+                                {isRunningAi ? 'Running Backtest...' : 'Run C++ Backtest Simulation'}
                             </button>
 
                             {strategyMetrics && (

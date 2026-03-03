@@ -108,11 +108,12 @@ app.MapPost("/api/run-custom-strategy", async (HttpRequest req) =>
         string aggr = root.TryGetProperty("aggression", out var aEl) ? aEl.GetDouble().ToString(System.Globalization.CultureInfo.InvariantCulture) : "1.0";
         string buy = root.TryGetProperty("buyThreshold", out var bEl) ? bEl.GetDouble().ToString(System.Globalization.CultureInfo.InvariantCulture) : "0.0001";
         string sell = root.TryGetProperty("sellThreshold", out var sellEl) ? sellEl.GetDouble().ToString(System.Globalization.CultureInfo.InvariantCulture) : "0.0001";
+        string timeframe = root.TryGetProperty("timeframe", out var tfEl) ? tfEl.GetString() ?? "1h" : "1h";
 
         var startInfo = new ProcessStartInfo
         {
             FileName = "/bin/bash",
-            Arguments = $"-c \"./run_custom_strategy.sh {symbol} {strategyType} {aggr} {buy} {sell}\"",
+            Arguments = $"-c \"./run_custom_strategy.sh {symbol} {strategyType} {aggr} {buy} {sell} {timeframe}\"",
             WorkingDirectory = "/Users/vishaljha/Desktop/TradingEngineServer/TradingEngine",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
