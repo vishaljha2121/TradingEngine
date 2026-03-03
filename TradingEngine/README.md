@@ -8,6 +8,25 @@ The accompanying frontend visualizer connects via WebSockets (SignalR) to displa
 
 ---
 
+## 🖼️ Demo Screenshots
+
+### Backtest Playground — Strategy Selection
+Select from 4 famous candle-based strategies (SMA Crossover, RSI, Bollinger Bands, MACD) or 2 orderbook strategies, pick a coin and timeframe, and run a C++ simulation.
+
+![Playground Landing](docs/screenshots/playground_landing.png)
+
+### Backtest Results — PnL Chart & Quantitative Metrics
+After running SMA Crossover on BTC/USD (1hr candles): $14,652 PnL, 39.7% Win Rate, 2.08 Sharpe Ratio, -$7,451 Max Drawdown.
+
+![Backtest Results](docs/screenshots/backtest_results.png)
+
+### Live Order Book — Real-Time Gemini Data
+Full-depth order book populated from the Gemini API with live bid/ask prices and sizes.
+
+![Order Book](docs/screenshots/orderbook_live.png)
+
+---
+
 ## 🏗️ Architecture & Core Components
 
 ### 1. The Backend (C# .NET 9)
