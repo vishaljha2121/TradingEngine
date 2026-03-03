@@ -32,17 +32,17 @@ The front end is designed as a standalone trading terminal:
 
 To demonstrate systems-level optimizations, several techniques were implemented to minimize Garbage Collection (GC) pauses, prevent CPU cache misses, and isolate execution contexts.
 
-### 1. Zero-Allocation Memory Modeling (Simulating Kernel Bypass)
+### 1. Zero-Allocation Memory Modeling (Simulating [Kernel Bypass](https://en.wikipedia.org/wiki/Data_Plane_Development_Kit))
 *   **What was implemented?** We eliminated the use of standard garbage-collected classes (e.g., `class Order`) on the "hot path" (the continuous execution loop). Instead, orders are passed as memory-efficient, stack-allocated `readonly struct OrderCore`. 
 *   **Why?** In high-throughput systems, constantly generating `new Object()` forces the .NET Garbage Collector to run frequently. GC pauses stop the entire application ("Stop The World" events), causing unacceptable microsecond latency spikes (jitter).
-*   **The Component:** The `OrderRingBuffer`. Instead of standard queues, the engine utilizes a lock-free Ring Buffer that pre-allocates an array of `1,000,000` structs on startup. Incoming API requests write data *directly into this pre-allocated block of memory*, simulating the direct-memory-access (DMA) properties of Kernel Bypass networking (like DPDK).
+*   **The Component:** The `OrderRingBuffer`. Instead of standard queues, the engine utilizes a lock-free Ring Buffer (an implementation of the [Object Pool Pattern](https://en.wikipedia.org/wiki/Object_pool_pattern)) that pre-allocates an array of `1,000,000` structs on startup. Incoming API requests write data *directly into this pre-allocated block of memory*, simulating the direct-memory-access (DMA) properties of Kernel Bypass networking (like DPDK).
 
-### 2. Cache-Line Alignment & False Sharing Prevention
+### 2. Cache-Line Alignment & [False Sharing](https://en.wikipedia.org/wiki/False_sharing) Prevention
 *   **What was implemented?** The core data structure was explicitly laid out in memory using `[StructLayout(LayoutKind.Explicit, Size = 64)]`.
 *   **Why?** Modern CPUs fetch memory from RAM into their incredibly fast L1/L2 caches in chunks called "Cache Lines" (which are exactly 64 bytes long on standard x86/ARM architectures). If two separate threads write to different variables that happen to sit next to each other in the same 64-byte chunk of RAM, the hardware will constantly invalidate and re-fetch the entire cache line across CPU cores. This performance killer is called "False Sharing".
 *   **The Fix:** By strictly forcing the `OrderCore` struct to be exactly 64-bytes (using `[FieldOffset]` and padding), we guarantee that one individual order perfectly fills exactly one CPU Cache Line. Thread A and Thread B will never accidentally share a cache line while processing different orders.
 
-### 3. CPU Core Isolation & Thread Affinity
+### 3. CPU Core Isolation & [Thread Affinity](https://en.wikipedia.org/wiki/Processor_affinity)
 *   **What was implemented?** The core execution loop utilizes native OS system calls (`ProcessThread.ProcessorAffinity`) to pin the matching thread to a specific, physical hardware CPU Core.
 *   **Why?** The OS thread scheduler normally moves application threads across different physical CPU cores dynamically to balance heat and power. Every time a thread changes physical cores, the CPU's local L1 cache is wiped. By pinning our `SpinWait` loop to the highest available processor (e.g., Core 7 on an 8-core machine), we guarantee the thread never context-switches, keeping the CPU cache perfectly "warm" with order data.
 *   **Fallback:** Core Affinity is a low-level OS feature. `TradingEngineBackgroundService` checks the OS environment using `OperatingSystem.IsWindows()` or `OperatingSystem.IsLinux()`. If the application is run on a local development machine running macOS (which restricts processor affinity binding), the engine gracefully falls back to a standard unbound thread and marks the telemetry panel as "Unpinned".
