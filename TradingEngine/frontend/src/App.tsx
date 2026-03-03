@@ -48,7 +48,7 @@ function App() {
     // Strategy Panel State
     const [playgroundSymbol, setPlaygroundSymbol] = useState<string>('btcusd');
     const [strategyType, setStrategyType] = useState<string>('sma_crossover');
-    const [timeframe, setTimeframe] = useState<string>('1h');
+    const [timeframe, setTimeframe] = useState<string>('1hr');
     const [aggression, setAggression] = useState<string>('1.0');
     const [buyThreshold, setBuyThreshold] = useState<string>('0.0001');
     const [sellThreshold, setSellThreshold] = useState<string>('0.0001');
@@ -180,16 +180,24 @@ function App() {
                     sellThreshold: parseFloat(sellThreshold)
                 })
             });
+
+            if (!res.ok) {
+                const errData = await res.text();
+                console.error('Backtest failed:', errData);
+                setAiReport('Backtest failed: ' + errData);
+                return;
+            }
+
             const data = await res.json();
 
             setStrategyMetrics({
-                total_orders: data.total_orders,
-                avg_latency_us: data.avg_latency_us,
-                max_latency_us: data.max_latency_us,
-                simulated_pnl: data.simulated_pnl,
-                win_rate: data.win_rate,
-                max_drawdown: data.max_drawdown,
-                sharpe_ratio: data.sharpe_ratio
+                total_orders: data.total_orders || 0,
+                avg_latency_us: data.avg_latency_us || 0,
+                max_latency_us: data.max_latency_us || 0,
+                simulated_pnl: data.simulated_pnl || 0,
+                win_rate: data.win_rate || 0,
+                max_drawdown: data.max_drawdown || 0,
+                sharpe_ratio: data.sharpe_ratio || 0
             });
 
             if (data.pnl_history) {
