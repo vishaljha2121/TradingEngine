@@ -11,17 +11,17 @@ The accompanying frontend visualizer connects via WebSockets (SignalR) to displa
 ### 1. Pro Exchange & Multi-User Portfolios 
 Log in instantly with a username to spin up a high-speed Redis wallet pre-funded with $100,000 USD and 5 BTC. View live Gemini order books and test your strategies via C++ simulations in the Pro Exchange dashboard.
 
-![Pro Exchange Dashboard](/Users/vishaljha/.gemini/antigravity/brain/b46f3295-6fc6-46b2-9503-bae0b7be48dc/main_dashboard_1772579042012.png)
+![Pro Exchange Dashboard](docs/screenshots/pro_exchange_dashboard.png)
 
 ### 2. Multiplayer Prediction Game Rooms (LAN Ready)
 Host private rooms on your local network and invite friends via short-codes to bet fake money on randomized outcomes! The room host triggers new events (e.g. *Will the Rocket Reach Orbit or Crash?*), and everyone bets $10.
 
-![Multiplayer Game Room](/Users/vishaljha/.gemini/antigravity/brain/b46f3295-6fc6-46b2-9503-bae0b7be48dc/test_multiplayer_rooms_1772583674910.webp)
+![Multiplayer Game Room](docs/screenshots/multiplayer_game_room.webp)
 
 ### 3. Administrator "God Mode"
 Log in as the all-seeing Administrator to view live global wallet balances. Enter active Game Rooms with the hidden *God Mode* panel to instantly rig event outcomes and bankrupt your friends!
 
-![Admin Dashboard](/Users/vishaljha/.gemini/antigravity/brain/b46f3295-6fc6-46b2-9503-bae0b7be48dc/verify_admin_dashboard_1772579795793.webp)
+![Admin Dashboard](docs/screenshots/admin_dashboard.webp)
 
 ---
 
