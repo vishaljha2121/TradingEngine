@@ -1,12 +1,12 @@
 {
   "total_orders": 100,
-  "avg_latency_us": 0.51416,
-  "max_latency_us": 6.027,
-  "simulated_pnl": -0.569615,
+  "avg_latency_us": 0.52342,
+  "max_latency_us": 5.184,
+  "simulated_pnl": -0.169458,
   "win_rate": 0.5,
-  "max_drawdown": 34.4763,
-  "sharpe_ratio": -0.132229,
-  "final_best_bid": 68300.9,
-  "final_best_ask": 68325,
-  "pnl_history": [6.82317, 13.6271, 20.4069, 27.1668, 33.9067, 27.0684, 20.1991, 13.2949, 6.37123, -0.569615]
+  "max_drawdown": 34.2465,
+  "sharpe_ratio": -0.0393723,
+  "final_best_bid": 68274.8,
+  "final_best_ask": 68292.4,
+  "pnl_history": [6.82502, 13.6468, 20.4634, 27.2748, 34.0771, 27.2467, 20.4114, 13.5711, 6.71664, -0.169458]
 }
