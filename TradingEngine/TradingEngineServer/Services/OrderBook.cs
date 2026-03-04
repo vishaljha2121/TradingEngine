@@ -87,14 +87,17 @@ public class OrderBook : IOrderBook
                     Size = tradeSize,
                     MakerOrderId = restingOrder.OrderId.ToString(),
                     TakerOrderId = incomingOrder.OrderId.ToString(),
+                    MakerUserId = restingOrder.UserId.ToString(),
+                    TakerUserId = incomingOrder.UserId.ToString(),
+                    MakerIsBuy = restingOrder.IsBuy,
                     Timestamp = DateTime.UtcNow
                 };
                 
                 OnTrade?.Invoke(trade);
 
                 // Update sizes on working struct copies
-                incomingOrder = new OrderCore(incomingOrder.OrderId, incomingOrder.Price, incomingOrder.Size - tradeSize, incomingOrder.IsBuy);
-                var updatedResting = new OrderCore(restingOrder.OrderId, restingOrder.Price, restingOrder.Size - tradeSize, restingOrder.IsBuy);
+                incomingOrder = new OrderCore(incomingOrder.OrderId, incomingOrder.Price, incomingOrder.Size - tradeSize, incomingOrder.IsBuy, incomingOrder.UserId);
+                var updatedResting = new OrderCore(restingOrder.OrderId, restingOrder.Price, restingOrder.Size - tradeSize, restingOrder.IsBuy, restingOrder.UserId);
 
                 if (updatedResting.Size == 0)
                 {

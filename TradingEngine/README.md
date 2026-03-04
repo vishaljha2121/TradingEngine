@@ -8,22 +8,20 @@ The accompanying frontend visualizer connects via WebSockets (SignalR) to displa
 
 ---
 
-## 🖼️ Demo Screenshots
+### 1. Pro Exchange & Multi-User Portfolios 
+Log in instantly with a username to spin up a high-speed Redis wallet pre-funded with $100,000 USD and 5 BTC. View live Gemini order books and test your strategies via C++ simulations in the Pro Exchange dashboard.
 
-### Backtest Playground — Strategy Selection
-Select from 4 famous candle-based strategies (SMA Crossover, RSI, Bollinger Bands, MACD) or 2 orderbook strategies, pick a coin and timeframe, and run a C++ simulation.
+![Pro Exchange Dashboard](/Users/vishaljha/.gemini/antigravity/brain/b46f3295-6fc6-46b2-9503-bae0b7be48dc/main_dashboard_1772579042012.png)
 
-![Playground Landing](docs/screenshots/playground_landing.png)
+### 2. Multiplayer Prediction Game Rooms (LAN Ready)
+Host private rooms on your local network and invite friends via short-codes to bet fake money on randomized outcomes! The room host triggers new events (e.g. *Will the Rocket Reach Orbit or Crash?*), and everyone bets $10.
 
-### Backtest Results — PnL Chart & Quantitative Metrics
-After running SMA Crossover on BTC/USD (1hr candles): $14,652 PnL, 39.7% Win Rate, 2.08 Sharpe Ratio, -$7,451 Max Drawdown.
+![Multiplayer Game Room](/Users/vishaljha/.gemini/antigravity/brain/b46f3295-6fc6-46b2-9503-bae0b7be48dc/test_multiplayer_rooms_1772583674910.webp)
 
-![Backtest Results](docs/screenshots/backtest_results.png)
+### 3. Administrator "God Mode"
+Log in as the all-seeing Administrator to view live global wallet balances. Enter active Game Rooms with the hidden *God Mode* panel to instantly rig event outcomes and bankrupt your friends!
 
-### Live Order Book — Real-Time Gemini Data
-Full-depth order book populated from the Gemini API with live bid/ask prices and sizes.
-
-![Order Book](docs/screenshots/orderbook_live.png)
+![Admin Dashboard](/Users/vishaljha/.gemini/antigravity/brain/b46f3295-6fc6-46b2-9503-bae0b7be48dc/verify_admin_dashboard_1772579795793.webp)
 
 ---
 
@@ -33,17 +31,17 @@ Full-depth order book populated from the Gemini API with live bid/ask prices and
 The backend is a unified `.NET WebApplication` that hosts both a REST API for ingestion and a long-running background service for processing.
 
 *   **API Layer (`Minimal APIs`)**: Exposes a `POST /api/orders` endpoint. It receives raw JSON orders from clients, converts them into memory-efficient structs, and immediately writes them to a lock-free ring buffer without blocking the HTTP thread.
+*   **Redis Data Store (`StackExchange.Redis`)**: Persistent, ultra-fast key-value storage for user wallet states, balances, and global authentication.
 *   **Message Bus / Queuing (`OrderRingBuffer`)**: Acts as the high-throughput bridge between the web API threads and the core matching engine thread.
 *   **The Matching Engine (`TradingEngineBackgroundService`)**: A dedicated, long-running thread that continuously polls the ring buffer. It takes incoming orders and routes them to the `OrderBook`.
 *   **The Order Book (`OrderBook` using `SortedDictionary`)**: The stateful memory structure representing Bids and Asks. It performs continuous cross-matching to execute trades when Buy and Sell prices overlap.
-*   **Broadcasting Layer (`SignalR Hub`)**: Pushes state changes (Trades and Order Book Snapshots) out to all connected websocket clients (the frontend) in real-time.
+*   **Broadcasting Layer (`SignalR Hub`)**: Pushes state changes (Trades, Order Book Snapshots, and Game Room Updates) out to all connected websocket clients in real-time.
 
-### 2. The Frontend (React + Vite)
-The front end is designed as a standalone trading terminal:
-*   **Order Entry**: Form for submitting BUY and SELL orders.
-*   **Real-Time Depth Chart**: Visualizes the `OrderBookSnapshot` pushed from the server using dynamic CSS depth bars.
-*   **Trade Ticker**: A scrolling history of executed trades.
-*   **Telemetry Dashboard**: Live metrics displaying the engine's sub-millisecond execution times and memory allocations.
+### 2. The Frontend (React + Vite + TypeScript)
+The front end is designed as a standalone trading terminal and gaming client:
+*   **Responsive Layout (`Flexbox + Grid`)**: Dynamically scales and stacks components (Exchange, Games, Admin Panels) flawlessly on both desktop and mobile viewports.
+*   **Prediction Lobby**: Connect and host isolated game rooms that poll SignalR to sync remote player statuses and betting rounds.
+*   **Telemetry Dashboard**: Live metrics displaying the physical engine's sub-millisecond execution times and memory allocations.
 
 ---
 

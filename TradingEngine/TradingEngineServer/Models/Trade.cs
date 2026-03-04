@@ -9,4 +9,7 @@ public class Trade
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     public string MakerOrderId { get; set; } = string.Empty;
     public string TakerOrderId { get; set; } = string.Empty;
+    public string MakerUserId { get; set; } = string.Empty;
+    public string TakerUserId { get; set; } = string.Empty;
+    public bool MakerIsBuy { get; set; }
 }

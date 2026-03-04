@@ -26,15 +26,17 @@ public readonly struct OrderCore
     [FieldOffset(28)]
     public readonly bool IsBuy;
 
-    // Remainder up to 64 bytes is padding.
-    // In a real ULL system, this padding might be used for Symbol ID, Timestamp, etc.
-    // For now, it explicitly pads the struct to prevent false sharing.
+    // Offset 29-36: We can store a truncated 8-character UserId string,
+    // For this simulation, we'll just use a string reference.
+    [FieldOffset(32)]
+    public readonly string UserId;
 
-    public OrderCore(long orderId, decimal price, int size, bool isBuy)
+    public OrderCore(long orderId, decimal price, int size, bool isBuy, string userId)
     {
         OrderId = orderId;
         Price = price;
         Size = size;
         IsBuy = isBuy;
+        UserId = userId;
     }
 }

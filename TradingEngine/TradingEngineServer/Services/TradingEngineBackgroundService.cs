@@ -13,6 +13,7 @@ public class TradingEngineBackgroundService : BackgroundService
     private readonly OrderRingBuffer _ringBuffer;
     private readonly IOrderBook _orderBook;
     private readonly IHubContext<TradingHub> _hubContext;
+    private readonly RedisService _redisService;
 
     public static int ActiveCoreId { get; private set; } = -1;
 
@@ -20,12 +21,14 @@ public class TradingEngineBackgroundService : BackgroundService
         ILogger<TradingEngineBackgroundService> logger,
         OrderRingBuffer ringBuffer,
         IOrderBook orderBook,
-        IHubContext<TradingHub> hubContext)
+        IHubContext<TradingHub> hubContext,
+        RedisService redisService)
     {
         _logger = logger;
         _ringBuffer = ringBuffer;
         _orderBook = orderBook;
         _hubContext = hubContext;
+        _redisService = redisService;
 
         _orderBook.OnTrade += HandleTrade;
         _orderBook.OnBookUpdated += HandleBookUpdated;
@@ -34,6 +37,22 @@ public class TradingEngineBackgroundService : BackgroundService
     private void HandleTrade(Trade trade)
     {
         _hubContext.Clients.All.SendAsync("ReceiveTrade", trade);
+        
+        // Find out who is buyer and who is seller
+        string buyerId = trade.MakerIsBuy ? trade.MakerUserId : trade.TakerUserId;
+        string sellerId = trade.MakerIsBuy ? trade.TakerUserId : trade.MakerUserId;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _redisService.SettleTradeAsync(buyerId, sellerId, trade.Price, trade.Size);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to settle trade in Redis");
+            }
+        });
     }
 
     private void HandleBookUpdated(OrderBookSnapshot snapshot)

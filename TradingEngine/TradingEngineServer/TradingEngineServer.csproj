@@ -13,4 +13,8 @@
       <Folder Include="Services\" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="StackExchange.Redis" Version="2.11.8" />
+    </ItemGroup>
+
 </Project>
