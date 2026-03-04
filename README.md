@@ -16,7 +16,7 @@ Log in instantly with a username to spin up a high-speed Redis wallet pre-funded
 ### 2. Multiplayer Prediction Game Rooms (LAN Ready)
 Host private rooms on your local network and invite friends via short-codes to bet fake money on randomized outcomes! The room host triggers new events (e.g. *Will the Rocket Reach Orbit or Crash?*), and everyone bets $10.
 
-![Multiplayer Game Room](docs/screenshots/multiplayer_game_room.webp)
+![Multiplayer Game Room Recording](docs/screenshots/game_room_recording.webp)
 
 ### 3. Administrator "God Mode"
 Log in as the all-seeing Administrator to view live global wallet balances. Enter active Game Rooms with the hidden *God Mode* panel to instantly rig event outcomes and bankrupt your friends!
