@@ -54,6 +54,10 @@ To demonstrate systems-level optimizations, several techniques were implemented 
 *   **Why?** In high-throughput systems, constantly generating `new Object()` forces the .NET Garbage Collector to run frequently. GC pauses stop the entire application ("Stop The World" events), causing unacceptable microsecond latency spikes (jitter).
 *   **The Component:** The `OrderRingBuffer`. Instead of standard queues, the engine utilizes a lock-free Ring Buffer (an implementation of the [Object Pool Pattern](https://en.wikipedia.org/wiki/Object_pool_pattern)) that pre-allocates an array of `1,000,000` structs on startup. Incoming API requests write data *directly into this pre-allocated block of memory*, simulating the direct-memory-access (DMA) properties of Kernel Bypass networking (like DPDK).
 
+To see the system in action, check out the [Performance Walkthrough](./walkthrough.md), the [Ultra-Detailed Test Suite Analysis](./TradingEngine/docs/test_suite_deep_dive.md), and our engineering blog series:
+- [Part 1: Performance Profiling & Bottlenecks](./blog.md)
+- [Part 2: Kernel Bypass, eBPF & Distributed Saturation](./blog_part2.md)
+
 ### 2. Cache-Line Alignment & [False Sharing](https://en.wikipedia.org/wiki/False_sharing) Prevention
 *   **What was implemented?** The core data structure was explicitly laid out in memory using `[StructLayout(LayoutKind.Explicit, Size = 64)]`.
 *   **Why?** Modern CPUs fetch memory from RAM into their incredibly fast L1/L2 caches in chunks called "Cache Lines" (which are exactly 64 bytes long on standard x86/ARM architectures). If two separate threads write to different variables that happen to sit next to each other in the same 64-byte chunk of RAM, the hardware will constantly invalidate and re-fetch the entire cache line across CPU cores. This performance killer is called "False Sharing".
