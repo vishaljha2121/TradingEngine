@@ -5,6 +5,8 @@ namespace TradingEngineServer.Core.Services;
 public interface IOrderBook
 {
     void AddOrder(in OrderCore order);
+    bool CancelOrder(long orderId);
+    void Reset();
     OrderBookSnapshot GetSnapshot();
     event Action<Trade>? OnTrade;
     event Action<OrderBookSnapshot>? OnBookUpdated;
@@ -127,6 +129,47 @@ public class OrderBook : IOrderBook
                 Bids = _bids.Select(kvp => new PriceLevel { Price = kvp.Key, Size = kvp.Value.Sum(o => o.Size) }).ToList(),
                 Asks = _asks.Select(kvp => new PriceLevel { Price = kvp.Key, Size = kvp.Value.Sum(o => o.Size) }).ToList()
             };
+        }
+    }
+
+    public bool CancelOrder(long orderId)
+    {
+        lock (_lock)
+        {
+            // Search bids
+            foreach (var kvp in _bids)
+            {
+                int idx = kvp.Value.FindIndex(o => o.OrderId == orderId);
+                if (idx >= 0)
+                {
+                    kvp.Value.RemoveAt(idx);
+                    if (kvp.Value.Count == 0) _bids.Remove(kvp.Key);
+                    OnBookUpdated?.Invoke(GetSnapshot());
+                    return true;
+                }
+            }
+            // Search asks
+            foreach (var kvp in _asks)
+            {
+                int idx = kvp.Value.FindIndex(o => o.OrderId == orderId);
+                if (idx >= 0)
+                {
+                    kvp.Value.RemoveAt(idx);
+                    if (kvp.Value.Count == 0) _asks.Remove(kvp.Key);
+                    OnBookUpdated?.Invoke(GetSnapshot());
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public void Reset()
+    {
+        lock (_lock)
+        {
+            _bids.Clear();
+            _asks.Clear();
         }
     }
 }

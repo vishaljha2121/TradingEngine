@@ -14,6 +14,7 @@ public class TradingEngineBackgroundService : BackgroundService
     private readonly IOrderBook _orderBook;
     private readonly IHubContext<TradingHub> _hubContext;
     private readonly RedisService _redisService;
+    private readonly EventLogger _eventLogger;
 
     public static int ActiveCoreId { get; private set; } = -1;
 
@@ -22,13 +23,15 @@ public class TradingEngineBackgroundService : BackgroundService
         OrderRingBuffer ringBuffer,
         IOrderBook orderBook,
         IHubContext<TradingHub> hubContext,
-        RedisService redisService)
+        RedisService redisService,
+        EventLogger eventLogger)
     {
         _logger = logger;
         _ringBuffer = ringBuffer;
         _orderBook = orderBook;
         _hubContext = hubContext;
         _redisService = redisService;
+        _eventLogger = eventLogger;
 
         _orderBook.OnTrade += HandleTrade;
         _orderBook.OnBookUpdated += HandleBookUpdated;
@@ -36,6 +39,12 @@ public class TradingEngineBackgroundService : BackgroundService
 
     private void HandleTrade(Trade trade)
     {
+        // Log trade execution to the deterministic event log
+        _eventLogger.LogTradeExecution(
+            trade.Price, trade.Size,
+            long.TryParse(trade.MakerOrderId, out var mkId) ? mkId : 0,
+            long.TryParse(trade.TakerOrderId, out var tkId) ? tkId : 0);
+
         _hubContext.Clients.All.SendAsync("ReceiveTrade", trade);
         
         // Find out who is buyer and who is seller
@@ -120,40 +129,50 @@ public class TradingEngineBackgroundService : BackgroundService
              _logger.LogWarning(ex, "Failed to apply Thread Affinity.");
         }
 
-        _logger.LogInformation("Trading Engine Loop Started.");
-        HandleBookUpdated(_orderBook.GetSnapshot());
-
-        var spinWait = new SpinWait();
-
-        // Hot Path: Spin-wait loop replaces asynchronous yield to avoid latency jitter
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            if (_ringBuffer.TryRead(out OrderCore order))
-            {
-                // Measure simulation latency at the engine consumption layer
-                long startTicks = Stopwatch.GetTimestamp();
-                
-                _orderBook.AddOrder(in order);
-                
-                long endTicks = Stopwatch.GetTimestamp();
-                double microseconds = (endTicks - startTicks) * 1_000_000.0 / Stopwatch.Frequency;
-                
-                // Fire and forget metric update
-                _ = _hubContext.Clients.All.SendAsync("ReceiveMetrics", new { 
-                    latencyUs = microseconds,
-                    allocations = 0, // Simulated Zero-Allocation path
-                    coreId = ActiveCoreId
-                }); 
-            }
-            else
-            {
-                // Engine is idle. In a true kernel-bypass system we never yield (spin 100%).
-                // For this demo application we will use SpinOnce to prevent computer lockup.
-                spinWait.SpinOnce();
-            }
-        }
+            _logger.LogInformation("Trading Engine Loop Started.");
+            HandleBookUpdated(_orderBook.GetSnapshot());
 
-        Thread.EndThreadAffinity();
-        _logger.LogInformation("Trading Engine Loop Stopped.");
+            var spinWait = new SpinWait();
+
+            // Hot Path: Spin-wait loop replaces asynchronous yield to avoid latency jitter
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                if (_ringBuffer.TryRead(out OrderCore order))
+                {
+                    // Log to deterministic event log BEFORE processing
+                    _eventLogger.LogNewOrder(in order);
+
+                    // Measure simulation latency at the engine consumption layer
+                    long startTicks = Stopwatch.GetTimestamp();
+                    
+                    _orderBook.AddOrder(in order);
+                    
+                    long endTicks = Stopwatch.GetTimestamp();
+                    double microseconds = (endTicks - startTicks) * 1_000_000.0 / Stopwatch.Frequency;
+                    
+                    // Fire and forget metric update
+                    _ = _hubContext.Clients.All.SendAsync("ReceiveMetrics", new { 
+                        latencyUs = microseconds,
+                        allocations = 0, // Simulated Zero-Allocation path
+                        coreId = ActiveCoreId
+                    }); 
+                }
+                else
+                {
+                    // Engine is idle. In a true kernel-bypass system we never yield (spin 100%).
+                    // For this demo application we will use SpinOnce to prevent computer lockup.
+                    spinWait.SpinOnce();
+                }
+            }
+
+            Thread.EndThreadAffinity();
+            _logger.LogInformation("Trading Engine Loop Stopped.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogCritical(ex, "Fatal Error in Core Trading Engine Loop. The engine has crashed.");
+        }
     }
 }

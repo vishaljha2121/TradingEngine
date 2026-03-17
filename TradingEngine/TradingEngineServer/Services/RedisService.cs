@@ -8,9 +8,9 @@ public class RedisService
     private readonly IConnectionMultiplexer _redis;
     private readonly IDatabase _db;
 
-    public RedisService(string connectionString)
+    public RedisService(IConnectionMultiplexer redis)
     {
-        _redis = ConnectionMultiplexer.Connect(connectionString);
+        _redis = redis;
         _db = _redis.GetDatabase();
     }
 

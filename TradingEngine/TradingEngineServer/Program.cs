@@ -28,9 +28,11 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Configure Redis
-var redisConnList = "127.0.0.1:6379";
-builder.Services.AddSingleton<RedisService>(new RedisService(redisConnList));
+// Configure Redis (abortConnect=false allows startup without Redis)
+var redisConnList = "127.0.0.1:6379,abortConnect=false";
+var multiplexer = ConnectionMultiplexer.Connect(redisConnList);
+builder.Services.AddSingleton<IConnectionMultiplexer>(multiplexer);
+builder.Services.AddSingleton<RedisService>();
 
 // Configure Zero-Allocation memory pool
 var ringBuffer = new OrderRingBuffer(1_000_000); // Pre-allocate 1M orders
@@ -38,6 +40,11 @@ builder.Services.AddSingleton(ringBuffer);
 
 // We will simulate a single symbol "BTCUSD" for this visualizer.
 builder.Services.AddSingleton<IOrderBook>(new OrderBook("BTCUSD"));
+
+// Deterministic Replay Engine: Event Logger + Replay
+var eventLogDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "data");
+builder.Services.AddSingleton(new EventLogger(eventLogDir));
+builder.Services.AddSingleton<ReplayEngine>();
 
 builder.Services.AddHostedService<TradingEngineBackgroundService>();
 
@@ -335,9 +342,52 @@ app.MapGet("/api/marketdata/{symbol}", async (string symbol) =>
     }
 });
 
+// --- Deterministic Replay Engine Endpoints ---
+
+app.MapGet("/api/events", (EventLogger logger) =>
+{
+    var events = logger.GetAllEvents();
+    var result = events.Select(e => new
+    {
+        seq = e.SequenceNumber,
+        timestamp = new DateTime(e.TimestampTicks, DateTimeKind.Utc).ToString("o"),
+        type = e.Type.ToString(),
+        orderId = e.OrderId,
+        orderPrice = e.OrderPrice,
+        orderSize = e.OrderSize,
+        orderIsBuy = e.OrderIsBuy,
+        orderUserId = e.OrderUserId,
+        tradePrice = e.TradePrice,
+        tradeSize = e.TradeSize,
+        makerOrderId = e.MakerOrderId,
+        takerOrderId = e.TakerOrderId
+    });
+    return Results.Ok(result);
+});
+
+app.MapGet("/api/events/count", (EventLogger logger) =>
+{
+    return Results.Ok(new { count = logger.GetEventCount() });
+});
+
+app.MapPost("/api/replay", (EventLogger logger, ReplayEngine replayEngine, IOrderBook orderBook) =>
+{
+    var events = logger.GetAllEvents();
+    var result = replayEngine.Replay(events, orderBook);
+    return Results.Ok(result);
+});
+
+app.MapDelete("/api/events", (EventLogger logger) =>
+{
+    logger.Clear();
+    return Results.Ok(new { message = "Event log cleared." });
+});
+
 app.Run();
 
 #nullable disable
+// To allow integration testing
+public partial class Program { }
 public class GameRoom 
 {
     public string RoomId { get; set; }
