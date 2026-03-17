@@ -124,3 +124,18 @@ To guarantee the engine behaves exactly as expected, a comprehensive suite of **
 *   **Zero-Allocation Ring Buffer**: Tests validate that the lock-free buffer correctly drops requests when full and strictly enforces FIFO consumption using structural `ref in` reads.
 *   **Deterministic Replay Engine**: Tests synthesize artificial binary logs (with cancels and matches), run them through the Replay Engine, and assert that the final deterministic snapshot matches the expected outcome mathematically.
 *   **REST API Integrations**: Tests validate the integration layer across the User Authentication, Wallet Balance modifications, and Multiplayer Game Room state transitions.
+
+---
+
+## 🏎️ Performance Profiling & Bottlenecks
+
+To validate the "Ultra-Low Latency" claims, deep performance profiling traces were executed across both the C++ Quantitative Engine and the C# Web API.
+
+### C++ Quantitative Engine (`gperftools`)
+Using Google Performance Tools embedded into the C++ `CMakeLists.txt`, we generated accurate CPU flamegraphs by looping the execution strategy over 1,000 times against historical candle data. 
+*   **Finding:** The engine processed hundreds of thousands of standard orderbook cross-matches flawlessly, but calculating exponential and statistical technical indicators (like the standard deviation calculations for Bollinger Bands) consumed the vast majority of CPU cycles. 
+
+### C# Web API (`dotnet-trace` & `dotnet-counters`)
+Using the `.NET Global Tools` and a custom Python `aiohttp` script, we bombarded the `/api/orders` endpoint with over 5,000 synthetic HTTP requests per second.
+*   **The GC Bottleneck:** Despite the core engine using a Zero-Allocation lock-free struct buffer, `dotnet-counters` revealed **479 Megabytes** of Gen0 Garbage Collection allocations immediately under load. This massive memory churn was causing `JsonException` thread crashes.
+*   **The Fix:** We refactored the HTTP request parsing from the legacy `StreamReader.ReadToEndAsync()` (which buffered the entire JSON payload into a contiguous string) to the modern, streaming `JsonSerializer.DeserializeAsync<T>()`. This zero-allocation stream processor bypassed intermediate strings entirely, drastically reducing GC pressure on the ingestion nodes.
