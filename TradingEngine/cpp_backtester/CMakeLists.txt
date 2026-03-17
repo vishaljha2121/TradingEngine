@@ -8,7 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Enable highest optimization flags for backend trading systems
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -flto -funroll-loops")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -g -fno-omit-frame-pointer -march=native -flto -funroll-loops")
     # Wall extra warnings, but not treating them as errors for now
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 endif()
@@ -23,4 +23,8 @@ set(SOURCES
 add_executable(backtester ${SOURCES})
 
 # Include directories
-target_include_directories(backtester PRIVATE src)
+target_include_directories(backtester PRIVATE src /usr/local/include)
+target_link_directories(backtester PRIVATE /usr/local/lib)
+
+# Link against gperftools profiler
+target_link_libraries(backtester PRIVATE profiler)

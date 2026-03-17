@@ -66,10 +66,8 @@ app.UseCors();
 // REST API endpoint to login a user and fetch/initialize wallet
 app.MapPost("/api/users/login", async (HttpRequest req, RedisService redisService) =>
 {
-    using var reader = new StreamReader(req.Body);
-    var body = await reader.ReadToEndAsync();
-    var doc = System.Text.Json.JsonDocument.Parse(body);
-    if (doc.RootElement.TryGetProperty("userId", out var userIdEl))
+    var doc = await JsonSerializer.DeserializeAsync<JsonElement>(req.Body);
+    if (doc.TryGetProperty("userId", out var userIdEl))
     {
         var userId = userIdEl.GetString();
         if (string.IsNullOrEmpty(userId)) return Results.BadRequest();
@@ -154,11 +152,9 @@ app.MapPost("/api/game/rooms/{roomId}/start", async (string roomId, Microsoft.As
 
 app.MapPost("/api/game/rooms/{roomId}/bet", async (string roomId, HttpRequest req, Microsoft.AspNetCore.SignalR.IHubContext<TradingHub> hub, RedisService redisService) =>
 {
-    using var reader = new StreamReader(req.Body);
-    var body = await reader.ReadToEndAsync();
-    var doc = JsonDocument.Parse(body);
-    var userId = doc.RootElement.GetProperty("userId").GetString();
-    var prediction = doc.RootElement.GetProperty("prediction").GetString();
+    var doc = await JsonSerializer.DeserializeAsync<JsonElement>(req.Body);
+    var userId = doc.GetProperty("userId").GetString();
+    var prediction = doc.GetProperty("prediction").GetString();
 
     if (gameRooms.TryGetValue(roomId.ToUpper(), out var room))
     {
@@ -178,10 +174,8 @@ app.MapPost("/api/game/rooms/{roomId}/bet", async (string roomId, HttpRequest re
 // ADMIN "GOD MODE" ENDPOINT to rig the game
 app.MapPost("/api/game/rooms/{roomId}/rig", async (string roomId, HttpRequest req, Microsoft.AspNetCore.SignalR.IHubContext<TradingHub> hub, RedisService redisService) =>
 {
-    using var reader = new StreamReader(req.Body);
-    var body = await reader.ReadToEndAsync();
-    var doc = JsonDocument.Parse(body);
-    var riggedOutcome = doc.RootElement.GetProperty("outcome").GetString();
+    var doc = await JsonSerializer.DeserializeAsync<JsonElement>(req.Body);
+    var riggedOutcome = doc.GetProperty("outcome").GetString();
 
     if (gameRooms.TryGetValue(roomId.ToUpper(), out var room))
     {
@@ -190,9 +184,17 @@ app.MapPost("/api/game/rooms/{roomId}/rig", async (string roomId, HttpRequest re
     }
     return Results.NotFound();
 });
-// REST API endpoint to receive orders from the frontend
-app.MapPost("/api/orders", async (TradingEngineServer.Core.Models.Order order, OrderRingBuffer buffer, RedisService redisService) =>
+// Global JSON Serializer Options for maximum performance without allocations
+var jsonOptions = new System.Text.Json.JsonSerializerOptions
 {
+    PropertyNameCaseInsensitive = true
+};
+
+// REST API endpoint to receive orders from the frontend
+app.MapPost("/api/orders", async (HttpRequest req, OrderRingBuffer buffer, RedisService redisService) =>
+{
+    var order = await JsonSerializer.DeserializeAsync<TradingEngineServer.Core.Models.Order>(req.Body, jsonOptions);
+    if (order == null) return Results.BadRequest();
     // Generate an arbitrary numerical ID for the struct. 
     long orderId = DateTime.UtcNow.Ticks;
     

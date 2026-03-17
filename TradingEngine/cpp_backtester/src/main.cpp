@@ -9,6 +9,7 @@
 #include <vector>
 #include <deque>
 #include <algorithm>
+#include <gperftools/profiler.h> // Industry standard C++ Profiler
 
 struct PerfMetrics {
     long long totalOrdersProcessed;
@@ -400,20 +401,34 @@ int main(int argc, char* argv[]) {
     std::cout << "Starting high-performance backtest engine...\n";
     std::cout << "Strategy: " << strategyType << " | Aggression: " << aggression << "\n";
 
+    ProfilerStart("backtester.prof");
+
     // Candle-based famous strategies
     if (strategyType == "sma_crossover" || strategyType == "rsi_mean_reversion" ||
         strategyType == "bollinger_breakout" || strategyType == "macd_signal") {
         auto candles = readCandles(csvPath);
         if (candles.empty()) {
             std::cerr << "No candle data found in: " << csvPath << "\n";
+            ProfilerStop();
             return 1;
         }
         std::cout << "Loaded " << candles.size() << " candles.\n";
-        runCandleStrategy(strategyType, candles, aggression);
+        
+        // Loop 1000x to build a dense CPU profile without reading from disk on every iteration
+        std::cout << "Profiling loop 1,000 times...\n";
+        for(int i=0; i<1000; i++) {
+            runCandleStrategy(strategyType, candles, aggression);
+        }
     } else {
-        // Original orderbook-based strategies (momentum, spread_arbitrage)
-        runOrderbookStrategy(csvPath, strategyType, aggression, buyThreshold, sellThreshold);
+        // Original orderbook-based strategies
+        std::cout << "Profiling loop 1,000 times...\n";
+        for(int i=0; i<1000; i++) {
+            runOrderbookStrategy(csvPath, strategyType, aggression, buyThreshold, sellThreshold);
+        }
     }
+
+    ProfilerStop();
+    std::cout << "Profiling complete. Output saved to backtester.prof\n";
 
     return 0;
 }
