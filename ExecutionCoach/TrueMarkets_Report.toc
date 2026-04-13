@@ -1,0 +1,9 @@
+\contentsline {section}{\numberline {1}Introduction \& Objectives}{2}{section.1}%
+\contentsline {section}{\numberline {2}Technical Architecture}{2}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Presentation Layer (React + Vite + TailwindCSS)}{2}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}API Proxy \& Big Data Serialization}{2}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Core Trading Engine (C++17)}{2}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Hero Moments in Action}{3}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Latency Regiment Shift}{3}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Inventory Cap Risk Guards}{3}{subsection.3.2}%
+\contentsline {section}{\numberline {4}Conclusion}{3}{section.4}%

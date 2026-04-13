@@ -1,0 +1,9 @@
+\BOOKMARK [1][-]{section.1}{Introduction \046 Objectives}{}% 1
+\BOOKMARK [1][-]{section.2}{Technical Architecture}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{Presentation Layer \(React + Vite + TailwindCSS\)}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{API Proxy \046 Big Data Serialization}{section.2}% 4
+\BOOKMARK [2][-]{subsection.2.3}{Core Trading Engine \(C++17\)}{section.2}% 5
+\BOOKMARK [1][-]{section.3}{Hero Moments in Action}{}% 6
+\BOOKMARK [2][-]{subsection.3.1}{Latency Regiment Shift}{section.3}% 7
+\BOOKMARK [2][-]{subsection.3.2}{Inventory Cap Risk Guards}{section.3}% 8
+\BOOKMARK [1][-]{section.4}{Conclusion}{}% 9

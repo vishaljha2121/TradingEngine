@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import * as signalR from '@microsoft/signalr';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import PokerTable from './PokerTable';
 
 interface Order {
     isBuy: boolean;
@@ -47,12 +48,16 @@ function App() {
     const [loggedInUser, setLoggedInUser] = useState<string | null>(null);
     const [balances, setBalances] = useState<{ USD: number; BTC: number }>({ USD: 0, BTC: 0 });
 
-    const [currentScreen, setCurrentScreen] = useState<'login' | 'selection' | 'exchange' | 'lobby' | 'room'>('login');
+    const [currentScreen, setCurrentScreen] = useState<'login' | 'selection' | 'exchange' | 'lobby' | 'room' | 'poker-lobby' | 'poker-table'>('login');
 
     // Multiplayer Game Room State
     const [lobbyCodeInput, setLobbyCodeInput] = useState('');
     const [activeRoom, setActiveRoom] = useState<any>(null);
     const [isHost, setIsHost] = useState(false);
+
+    // Poker State
+    const [pokerRoom, setPokerRoom] = useState<any>(null);
+    const [pokerLobbyCode, setPokerLobbyCode] = useState('');
 
     const [gamePrediction, setGamePrediction] = useState<string | null>(null);
     const gamePredictionRef = useRef<string | null>(null);
@@ -174,7 +179,14 @@ function App() {
 
         connection.on("GameResolved", (result: { roomId: string, winningOption: string }) => {
             // Animate or notify logic here if needed. 
-            // Most of the UI update happens automatically when RoomStateUpdated is fired alongside this.
+        });
+
+        // --- POKER REAL-TIME SYNC ---
+        connection.on("PokerStateUpdated", (roomData: any) => {
+            // Only update if this state is for our logged-in user
+            if (roomData.forPlayer === loggedInUserRef.current) {
+                setPokerRoom(roomData);
+            }
         });
 
         connection.start()
@@ -281,7 +293,7 @@ function App() {
         setIsRunningAi(true);
         setAiReport(null);
         try {
-            const res = await fetch('http://localhost:12000/api/run-backtest', {
+            const res = await fetch(`${API_BASE}/api/run-backtest`, {
                 method: 'POST'
             });
             const data = await res.json();
@@ -302,7 +314,7 @@ function App() {
         setStrategyMetrics(null);
 
         try {
-            const res = await fetch('http://localhost:12000/api/run-custom-strategy', {
+            const res = await fetch(`${API_BASE}/api/run-custom-strategy`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -350,7 +362,7 @@ function App() {
     const getAiFeedback = async () => {
         setIsRunningAi(true);
         try {
-            const res = await fetch('http://localhost:12000/api/ai-feedback', { method: 'POST' });
+            const res = await fetch(`${API_BASE}/api/ai-feedback`, { method: 'POST' });
             const data = await res.json();
             setAiReport(data.result || data.error);
         } catch (err) {
@@ -529,6 +541,19 @@ function App() {
                         <span style={{ fontSize: '3rem' }}>🎲</span>
                         <h2 style={{ margin: 0, color: 'white' }}>Prediction Game</h2>
                         <span style={{ color: 'var(--text-secondary)' }}>Play with friends in multiplayer rooms.</span>
+                    </button>
+
+                    <button
+                        onClick={() => setCurrentScreen('poker-lobby')}
+                        style={{
+                            background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                            borderRadius: '16px', padding: '3rem 2rem', width: '100%', maxWidth: '300px',
+                            cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem'
+                        }}
+                    >
+                        <span style={{ fontSize: '3rem' }}>🃏</span>
+                        <h2 style={{ margin: 0, color: 'white' }}>Texas Hold'em</h2>
+                        <span style={{ color: 'var(--text-secondary)' }}>Real poker with friends. Up to 8 players.</span>
                     </button>
                 </div>
             </div>
@@ -739,6 +764,92 @@ function App() {
                     </div>
                 </div>
             </div>
+        );
+    }
+
+    // ── POKER LOBBY ──
+    if (currentScreen === 'poker-lobby') {
+        const createPokerRoom = async () => {
+            const res = await fetch(`${API_BASE}/api/poker/rooms`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: loggedInUser })
+            });
+            const roomData = await res.json();
+            setPokerRoom(roomData);
+            setIsHost(true);
+            setCurrentScreen('poker-table');
+        };
+
+        const joinPokerRoom = async (e: React.FormEvent) => {
+            e.preventDefault();
+            if (!pokerLobbyCode) return;
+            const res = await fetch(`${API_BASE}/api/poker/rooms/${pokerLobbyCode}/join`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: loggedInUser })
+            });
+            if (res.ok) {
+                const roomData = await res.json();
+                setPokerRoom(roomData);
+                setIsHost(false);
+                setCurrentScreen('poker-table');
+            } else {
+                alert("Room not found!");
+            }
+        };
+
+        return (
+            <div className="app-container" style={{ maxWidth: '900px', margin: '0 auto', paddingTop: '1rem' }}>
+                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4rem', backgroundColor: 'var(--bg-tertiary)', padding: '1rem 1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <button onClick={() => setCurrentScreen('selection')} style={{ background: 'none', border: '1px solid var(--text-secondary)', color: 'white', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer' }}>← Back</button>
+                        <h2 style={{ margin: 0, color: 'white' }}>🃏 Texas Hold'em Lobby</h2>
+                    </div>
+                </header>
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3rem', width: '100%' }}>
+                    <button
+                        onClick={createPokerRoom}
+                        className="btn btn-primary"
+                        style={{ padding: '1.5rem 3rem', fontSize: '1.5rem', borderRadius: '12px', width: '100%', maxWidth: '350px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                        🃏 Create Poker Table
+                    </button>
+
+                    <div style={{ color: 'var(--text-secondary)' }}>— OR —</div>
+
+                    <form onSubmit={joinPokerRoom} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '350px' }}>
+                        <input
+                            type="text"
+                            placeholder="Enter 4-Letter Room Code"
+                            value={pokerLobbyCode}
+                            onChange={e => setPokerLobbyCode(e.target.value.toUpperCase())}
+                            style={{ padding: '1.25rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'white', fontSize: '1.2rem', textAlign: 'center', textTransform: 'uppercase' }}
+                            maxLength={4}
+                        />
+                        <button type="submit" className="btn btn-secondary" style={{ padding: '1.25rem', fontSize: '1.2rem', borderRadius: '8px', background: '#6366f1', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>
+                            🚀 Join Table
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    }
+
+    // ── POKER TABLE ──
+    if (currentScreen === 'poker-table' && pokerRoom) {
+        return (
+            <PokerTable
+                room={pokerRoom}
+                loggedInUser={loggedInUser!}
+                isHost={isHost}
+                apiBase={API_BASE}
+                onLeave={() => {
+                    setPokerRoom(null);
+                    setCurrentScreen('poker-lobby');
+                }}
+            />
         );
     }
 

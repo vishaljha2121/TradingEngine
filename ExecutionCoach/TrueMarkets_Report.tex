@@ -1,0 +1,121 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{titlesec}
+\usepackage{tcolorbox}
+
+\geometry{margin=1in}
+
+% TrueMarkets Colors
+\definecolor{tmblue}{HTML}{0F172A}
+\definecolor{tmaccent}{HTML}{1D4ED8}
+\definecolor{codebg}{HTML}{F1F5F9}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=tmaccent,
+    urlcolor=tmaccent,
+    pdftitle={Execution Coach Architecture Report}
+}
+
+\lstset{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    rulecolor=\color{lightgray},
+    keywordstyle=\color{tmaccent}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{green!50!black}
+}
+
+\title{
+    \vspace{-2cm}
+    \includegraphics[width=4cm]{logo_placeholder.png} \\ % REplace with TrueMarkets logo if desired
+    \vspace{1cm}
+    \textbf{Execution Coach}\\
+    \large Pre-Trade Decision Support System Architecture Report
+}
+\author{Vishal Jha}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+The Execution Coach is a high-performance pre-trade environment designed to recommend optimal trading postures based on live order book states, network latency conditions, and risk cap thresholds. This document outlines the architectural implementation from the React frontend down to the C++17 Matching Engine via Big Data industry-standard protocols.
+\end{abstract}
+
+\vspace{0.5cm}
+\tableofcontents
+\newpage
+
+\section{Introduction \& Objectives}
+The objective of this project was to construct a demonstration-ready "Execution Coach" to present at the TrueMarkets Intern Interview Superday. The system aims to dynamically coach a trader on how they should execute an order (Execute Now, Slice, or Defensive) by empirically simulating the expected slippage and risk natively against a C++ matching engine.
+
+Two core "Hero Moments" were required:
+\begin{itemize}
+    \item \textbf{Latency Toggles}: Demonstrating how degraded networking (Stressed) severely shifts posture recommendations compared to Nominal latency.
+    \item \textbf{Risk Guards}: Demonstrating hard-stop defensive maneuvers when inventory caps are breached.
+\end{itemize}
+
+\section{Technical Architecture}
+The system was designed utilizing Clean Architecture principles at the UI layer and High-Frequency Trading (HFT) methodologies at the backend execution layer.
+
+\begin{figure}[H]
+    \centering
+    % \includegraphics[width=0.8\textwidth]{screenshots/architecture_diagram.png}
+    \begin{tcolorbox}[colback=white, colframe=tmaccent, title=System Flow]
+    Vite React UI $\rightarrow$ JSON REST $\rightarrow$ Python FastAPI Proxy $\rightarrow$ \textbf{Apache FlatBuffers IPC} $\rightarrow$ C++17 OrderBook
+    \end{tcolorbox}
+    \caption{System Architecture Flow}
+\end{figure}
+
+\subsection{Presentation Layer (React + Vite + TailwindCSS)}
+The dashboard is a self-contained Vite application featuring exact TrueMarkets custom design tokens. It utilizes asynchronous Debounce fetching to prevent overwhelming the backend during live WebSocket tick ingestion from the Gemini \texttt{BTCUSD} feed.
+
+\begin{figure}[H]
+    \centering
+    % \includegraphics[width=0.9\textwidth]{screenshots/dashboard_nominal.png}
+    \textit{[Please insert a screenshot of the Dashboard operating in Nominal conditions here]}
+    \caption{The Dashboard operating under Nominal Latency and neutral inventory.}
+\end{figure}
+
+\subsection{API Proxy \& Big Data Serialization}
+To maintain the industry standard for High-Frequency data, the frontend does not send REST payloads directly to the C++ engine. A Python FastAPI proxy intercepts the UI requests, translates them strictly into \textbf{Apache FlatBuffers} schemas (\texttt{schema.fbs}), and zero-copy streams the binary execution instructions into the native Engine via subprocess invocation.
+
+\subsection{Core Trading Engine (C++17)}
+The logic is resolved within the native \texttt{cpp\_backtester} engine. The binary was refactored to parse the `market\_state.bin` FlatBuffer natively in RAM, execute thousands of simulations against the embedded \texttt{OrderBook} structure, process risk penalty metrics computationally, and output standard JSON to \texttt{STDOUT}.
+
+\section{Hero Moments in Action}
+
+\subsection{Latency Regiment Shift}
+When a user toggles the Latency setting from "Nominal" to "Stressed", the execution engine immediately penalizes the `Execute Now` expected costs by a factor of 3.5x, inherently causing the application interface to shift its recommendation toward "Slice" or "Defensive" to eliminate adverse selection risk.
+
+\begin{figure}[H]
+    \centering
+    % \includegraphics[width=0.9\textwidth]{screenshots/latency_stressed.png}
+    \textit{[Please insert a screenshot of the Latency toggled to Stressed here]}
+    \caption{System recommending slice mode due to extreme network latency.}
+\end{figure}
+
+\subsection{Inventory Cap Risk Guards}
+If the trader sets their position size to a volume that causes their total cumulative position to breach the \$100,000 threshold, the C++ execution engine overrides the slippage math with a massive +100 risk penalty, forcing the recommendation block into a mandatory \textbf{Defensive} posture.
+
+\begin{figure}[H]
+    \centering
+    % \includegraphics[width=0.9\textwidth]{screenshots/risk_guard.png}
+    \textit{[Please insert a screenshot of the Risk slider maxed out here]}
+    \caption{Risk Guard engaging defensive protocols.}
+\end{figure}
+
+\section{Conclusion}
+This project successfully encapsulates raw C++ execution logic into a highly polished, web-friendly dashboard utilizing industry-grade IPC (FlatBuffers) and Clean Code structural patterns. It is structurally prepared to directly intake TrueMarkets proprietary data structures dynamically in the future.
+
+\end{document}

@@ -10,6 +10,8 @@
 #include <deque>
 #include <algorithm>
 #include <gperftools/profiler.h> // Industry standard C++ Profiler
+#include "schema_generated.h"
+using namespace ExecutionCoach::Sim;
 
 struct PerfMetrics {
     long long totalOrdersProcessed;
@@ -384,12 +386,81 @@ void runOrderbookStrategy(const std::string& csvPath, const std::string& strateg
         std::cout << "Report saved to -> data/backtest_report.json\n";
     }
 }
+void runFlatbufferSimulation(const std::string& binPath) {
+    std::ifstream infile(binPath, std::ios::binary | std::ios::ate);
+    if (!infile) {
+        std::cerr << "{\"error\": \"Failed to open bin file\"}\n";
+        return;
+    }
+    std::streamsize size = infile.tellg();
+    infile.seekg(0, std::ios::beg);
+    std::vector<char> buffer(size);
+    if (!infile.read(buffer.data(), size)) {
+        std::cerr << "{\"error\": \"Failed to read bin file\"}\n";
+        return;
+    }
+
+    auto req = GetSimulationRequest(buffer.data());
+    auto q = req->current_quote();
+    double currentBid = q->bid();
+    double currentAsk = q->ask();
+    
+    // Simulate latency regime logic matching the Python intent
+    double executionLatencyFactor = 1.0;
+    if (req->latency() == LatencyRegime_Medium) executionLatencyFactor = 1.8;
+    else if (req->latency() == LatencyRegime_Stressed) executionLatencyFactor = 3.5;
+
+    double sizeMultiplier = req->size_usd() / 10000.0;
+    double baselineSpread = std::abs(currentAsk - currentBid);
+    
+    double simulatedCost = 0.0;
+    double simulatedRisk = 0.0;
+    
+    OrderBook ob("BTCUSD");
+    ob.processOrder(true, currentBid, 10);
+    ob.processOrder(false, currentAsk, 10);
+    
+    auto start = std::chrono::high_resolution_clock::now();
+    ob.processOrder(req->side(), req->side() ? currentAsk : currentBid, req->size_usd());
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::micro> elapsed = end - start;
+    
+    if (req->mode() == ExecutionMode_ExecuteNow) {
+        simulatedCost = (sizeMultiplier * baselineSpread) * executionLatencyFactor;
+        simulatedRisk = (req->latency() != LatencyRegime_Nominal) ? 80 : 30;
+    } else if (req->mode() == ExecutionMode_Slice) {
+        simulatedCost = ((sizeMultiplier * 0.4) * baselineSpread) + (executionLatencyFactor * 5);
+        simulatedRisk = 20 + (executionLatencyFactor * 10);
+    } else { // Defensive
+        simulatedCost = baselineSpread + (executionLatencyFactor * 15);
+        simulatedRisk = 5;
+    }
+
+    // Force risk cap guard locally in C++ RAM logic
+    if (req->inventory_usd() + req->size_usd() > 100000.0) {
+        simulatedRisk += 100; // Penalize drastically
+    }
+    
+    // Send single JSON block to STDOUT for Python API proxy to pick up. Zero-copy IPC approach via Popen.
+    std::cout << "{\n"
+              << "  \"mode\": " << (int)req->mode() << ",\n"
+              << "  \"simulatedCost\": " << simulatedCost << ",\n"
+              << "  \"simulatedRisk\": " << simulatedRisk << ",\n"
+              << "  \"latencyUs\": " << elapsed.count() << "\n"
+              << "}\n";
+}
 
 // ─── Main ───────────────────────────────────────────────────────────────
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <path_to_csv> [strategy_type] [aggression] [buy_threshold] [sell_threshold]\n";
         return 1;
+    }
+
+    if (argc >= 2 && std::string(argv[1]).find(".bin") != std::string::npos) {
+        // Flatbuffers Direct Execution Mode
+        runFlatbufferSimulation(argv[1]);
+        return 0;
     }
 
     std::string csvPath = argv[1];

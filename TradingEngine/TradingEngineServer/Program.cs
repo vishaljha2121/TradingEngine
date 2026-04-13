@@ -1,4 +1,4 @@
-﻿using System.Threading.Channels;
+using System.Threading.Channels;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +11,8 @@ using StackExchange.Redis;
 using TradingEngineServer.Core.Hubs;
 using TradingEngineServer.Core.Models;
 using TradingEngineServer.Core.Services;
+using TradingEngineServer.Core.Poker.Models;
+using TradingEngineServer.Core.Poker.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,7 +31,8 @@ builder.Services.AddCors(options =>
 });
 
 // Configure Redis (abortConnect=false allows startup without Redis)
-var redisConnList = "127.0.0.1:6379,abortConnect=false";
+var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST") ?? "127.0.0.1";
+var redisConnList = $"{redisHost}:6379,abortConnect=false";
 var multiplexer = ConnectionMultiplexer.Connect(redisConnList);
 builder.Services.AddSingleton<IConnectionMultiplexer>(multiplexer);
 builder.Services.AddSingleton<RedisService>();
@@ -51,6 +54,9 @@ builder.Services.AddHostedService<TradingEngineBackgroundService>();
 // GLOBAL MEMORY FOR MULTIPLAYER GAME ROOMS
 var gameRooms = new ConcurrentDictionary<string, GameRoom>();
 var EVENT_TYPES = new string[] { "Frog Jump", "Coin Flip", "Rocket Launch", "Cat Mood", "Weather Forecast" };
+
+// POKER ROOMS — thread-safe storage
+var pokerRooms = new ConcurrentDictionary<string, PokerRoom>();
 var EVENT_OPTIONS = new Dictionary<string, string[]> {
     { "Frog Jump", new[] { "LEFT", "RIGHT" } },
     { "Coin Flip", new[] { "HEADS", "TAILS" } },
@@ -62,6 +68,13 @@ var EVENT_OPTIONS = new Dictionary<string, string[]> {
 var app = builder.Build();
 
 app.UseCors();
+
+// Serve frontend static files in production (Docker)
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+// Register Poker endpoints
+PokerEndpoints.Map(app, pokerRooms);
 
 // REST API endpoint to login a user and fetch/initialize wallet
 app.MapPost("/api/users/login", async (HttpRequest req, RedisService redisService) =>
@@ -384,6 +397,9 @@ app.MapDelete("/api/events", (EventLogger logger) =>
     logger.Clear();
     return Results.Ok(new { message = "Event log cleared." });
 });
+
+// Fallback to index.html for SPA routing
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

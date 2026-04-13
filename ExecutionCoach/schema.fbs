@@ -1,0 +1,20 @@
+namespace ExecutionCoach.Sim;
+
+enum ExecutionMode : byte { ExecuteNow = 0, Slice = 1, Defensive = 2 }
+enum LatencyRegime : byte { Nominal = 0, Medium = 1, Stressed = 2 }
+
+table Quote {
+  bid: double;
+  ask: double;
+}
+
+table SimulationRequest {
+  side: bool; // true = Buy, false = Sell
+  size_usd: double;
+  latency: LatencyRegime;
+  mode: ExecutionMode;
+  current_quote: Quote;
+  inventory_usd: double;
+}
+
+root_type SimulationRequest;
