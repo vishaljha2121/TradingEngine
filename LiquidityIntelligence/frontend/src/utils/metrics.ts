@@ -1,4 +1,4 @@
-import type { VenueSnapshot, ChartPoint } from '../types';
+import type { VenueSnapshot, ChartPoint, Level } from '../types';
 
 export function getImbalance(snap: VenueSnapshot): number {
   const sum = snap.bid_depth_5 + snap.ask_depth_5;
@@ -17,15 +17,54 @@ export function getMicroprice(snap: VenueSnapshot): number {
   return snap.mid;
 }
 
+export function computeVWAP(levels: Level[], targetSize: number): number {
+  if (levels.length === 0 || targetSize <= 0) return 0;
+  let remaining = targetSize;
+  let totalValue = 0;
+  let totalExecuted = 0;
+
+  for (const level of levels) {
+    const price = level[0];
+    const qty = level[1];
+    const fillQty = Math.min(qty, remaining);
+    totalValue += price * fillQty;
+    totalExecuted += fillQty;
+    remaining -= fillQty;
+    if (remaining <= 0) break;
+  }
+  
+  if (totalExecuted === 0) return 0;
+  return totalValue / totalExecuted;
+}
+
+export function computeSlippageBps(levels: Level[], mid: number, targetSize: number, side: 'buy' | 'sell'): number {
+  const vwap = computeVWAP(levels, targetSize);
+  if (vwap === 0 || mid === 0) return 0;
+  return side === 'buy' ? ((vwap - mid) / mid) * 10000 : ((mid - vwap) / mid) * 10000;
+}
+
 export function getEffectiveSpread(snap: VenueSnapshot): { spreadBps: number; bidMicro: number; askMicro: number } {
-  const bidMicro = snap.bids.length > 1
-    ? (snap.bids[0][0] * snap.bids[0][1] + snap.bids[1][0] * snap.bids[1][1]) / (snap.bids[0][1] + snap.bids[1][1])
-    : (snap.bids[0] ? snap.bids[0][0] : snap.mid);
-  const askMicro = snap.asks.length > 1
-    ? (snap.asks[0][0] * snap.asks[0][1] + snap.asks[1][0] * snap.asks[1][1]) / (snap.asks[0][1] + snap.asks[1][1])
-    : (snap.asks[0] ? snap.asks[0][0] : snap.mid);
+  // Use sum of top 5 levels for a realistic deep VWAP spread
+  const totalBidQty = snap.bids.reduce((sum, b) => sum + b[1], 0);
+  const totalAskQty = snap.asks.reduce((sum, a) => sum + a[1], 0);
+  
+  const bidMicro = computeVWAP(snap.bids, totalBidQty);
+  const askMicro = computeVWAP(snap.asks, totalAskQty);
+  
   const spreadBps = snap.mid > 0 ? Math.abs((askMicro - bidMicro) / snap.mid) * 10000 : 0;
-  return { spreadBps, bidMicro, askMicro };
+  return { spreadBps, bidMicro: bidMicro || snap.mid, askMicro: askMicro || snap.mid };
+}
+
+export function computeSlippageAdvantage(tm: VenueSnapshot, bench: VenueSnapshot): number {
+  if (bench.bids.length === 0 || bench.asks.length === 0 || tm.bids.length === 0 || tm.asks.length === 0) return 0;
+  
+  // Use total depth of level 1 for standard slippage order size
+  const targetSize = bench.bids[0][1] + bench.asks[0][1];
+  
+  const tmSlippageBuy = computeSlippageBps(tm.asks, tm.mid, targetSize, 'buy');
+  const benchSlippageBuy = computeSlippageBps(bench.asks, bench.mid, targetSize, 'buy');
+  
+  return benchSlippageBuy - tmSlippageBuy;
 }
 
 export function computeFlowRisk(spreadGap: number, depthRatio: number, lagMs: number): {

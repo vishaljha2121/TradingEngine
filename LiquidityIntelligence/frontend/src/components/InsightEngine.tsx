@@ -1,7 +1,6 @@
-import React from 'react';
 import { Activity } from 'lucide-react';
 import type { VenueSnapshot, ChartPoint } from '../types';
-import { detectPatterns } from '../utils/metrics';
+import { detectPatterns, computeSlippageAdvantage } from '../utils/metrics';
 
 interface InsightEngineProps {
   truemarkets: VenueSnapshot;
@@ -28,6 +27,15 @@ export function InsightEngine({ truemarkets, benchmark, spreadGap, lagMs, histor
       text: lagMs > 100 ? `${lagMs}ms behind benchmark quote update.` : `Synchronized (${lagMs}ms).`,
     },
   ];
+
+  const slipAdvEdge = computeSlippageAdvantage(truemarkets, benchmark);
+  insights.push({
+    label: 'SLIPPAGE',
+    ok: slipAdvEdge >= 0,
+    text: slipAdvEdge >= 0 
+      ? `Flow routing saves +${slipAdvEdge.toFixed(2)} bps vs ${benchmark.venue.toUpperCase()}` 
+      : `Execution penalty: ${Math.abs(slipAdvEdge).toFixed(2)} bps worse than ${benchmark.venue.toUpperCase()}`
+  });
 
   return (
     <div className="flex items-start gap-px bg-[#21262d] border-t border-[#21262d] flex-shrink-0">

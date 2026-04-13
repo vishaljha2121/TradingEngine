@@ -71,6 +71,10 @@ export default function App() {
   const depthRatio = benchDepth > 0 ? tmDepth / benchDepth : 1;
   const avgLag = history.length > 0 ? Math.round(history.reduce((a, b) => a + b.lagMs, 0) / history.length) : 0;
   const flowRisk = computeFlowRisk(spreadGap, depthRatio, realLagMs);
+  
+  const lagEvents = history.filter(p => p.lagMs > 100);
+  const lagEventsCount = lagEvents.length;
+  const lastLagEventMs = lagEvents.length > 0 ? lagEvents[lagEvents.length - 1].lagMs : 0;
 
   return (
     <div className="h-screen w-screen bg-[#0d1117] text-[#c9d1d9] font-sans flex flex-col overflow-hidden">
@@ -106,6 +110,7 @@ export default function App() {
       <ScoreCards
         flowRisk={flowRisk} lagMs={realLagMs} avgLag={avgLag}
         depthRatio={depthRatio} tmDepth={tmDepth} benchDepth={benchDepth} benchName={benchmark}
+        lastLagEventMs={lastLagEventMs} lagEventsCount={lagEventsCount} history={history}
       />
 
       {/* Insight engine row */}

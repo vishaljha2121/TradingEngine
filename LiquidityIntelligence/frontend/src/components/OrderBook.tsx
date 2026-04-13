@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import type { VenueSnapshot } from '../types';
 import { formatPrice, formatQty } from '../utils/formatters';
+import { getEffectiveSpread } from '../utils/metrics';
 import { TrueMarketsIcon } from './TrueMarketsLogo';
 
 interface OrderBookProps {
@@ -10,20 +11,17 @@ interface OrderBookProps {
 }
 
 export function OrderBook({ snapshot, title, isTrueMarkets = false }: OrderBookProps) {
-  const cumBids = useMemo(() => {
-    let cum = 0;
-    return snapshot.bids.map(b => { cum += b[1]; return cum; });
-  }, [snapshot.bids]);
-  const cumAsks = useMemo(() => {
-    let cum = 0;
-    return snapshot.asks.map(a => { cum += a[1]; return cum; });
-  }, [snapshot.asks]);
+  const maxQty = useMemo(() => {
+    return Math.max(
+      ...snapshot.asks.map(a => a[1]),
+      ...snapshot.bids.map(b => b[1]),
+      0.001
+    );
+  }, [snapshot]);
 
-  const bestBid = snapshot.bids[0]?.[0] || 0;
-  const bestAsk = snapshot.asks[0]?.[0] || 0;
-  const spread = bestAsk - bestBid;
-  const mid = (bestBid + bestAsk) / 2;
-  const spreadBps = mid > 0 ? (spread / mid) * 10000 : 0;
+  
+  const { spreadBps, askMicro: askVwap, bidMicro: bidVwap } = getEffectiveSpread(snapshot);
+  const effSpread = askVwap - bidVwap;
   const imbalance = (snapshot.bid_depth_5 + snapshot.ask_depth_5) > 0
     ? ((snapshot.bid_depth_5 - snapshot.ask_depth_5) / (snapshot.bid_depth_5 + snapshot.ask_depth_5)) * 100
     : 0;
@@ -50,39 +48,41 @@ export function OrderBook({ snapshot, title, isTrueMarkets = false }: OrderBookP
 
       {/* ASKS (reversed) */}
       <div className="flex flex-col-reverse flex-shrink-0">
-        {snapshot.asks.slice(0, 5).map((ask, i) => (
-          <div key={`a${i}`} className="grid grid-cols-3 px-3 py-[3px] text-[13px] font-mono relative items-center hover:bg-[#161b22]">
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute right-0 top-0 bottom-0 bg-red-500/10 transition-all duration-300"
-                style={{ width: `${Math.min(100, (cumAsks[i] / (cumAsks[cumAsks.length - 1] || 1)) * 100)}%` }} />
+        {snapshot.asks.slice(0, 5).map((ask, i) => {
+          const intensity = Math.min(0.6, ask[1] / maxQty * 0.8);
+          return (
+            <div key={`a${i}`} 
+                 className="grid grid-cols-3 px-3 py-[3px] text-[13px] font-mono items-center hover:bg-[#161b22] transition-colors"
+                 style={{ backgroundColor: `rgba(239, 68, 68, ${intensity})` }}>
+              <div className="text-red-400 z-10 font-bold">{formatPrice(ask[0])}</div>
+              <div className="text-right text-[#c9d1d9] z-10">{formatQty(ask[1])}</div>
+              <div className="text-right text-[#8b949e] z-10">{formatPrice(ask[0] * ask[1])}</div>
             </div>
-            <div className="text-red-400 relative z-10">{formatPrice(ask[0])}</div>
-            <div className="text-right text-[#c9d1d9] relative z-10">{formatQty(ask[1])}</div>
-            <div className="text-right text-[#8b949e] relative z-10">{formatQty(cumAsks[i])}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Spread row */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-[#161b22] border-y border-[#21262d] text-[11px] font-mono flex-shrink-0">
-        <span className="text-[#8b949e] font-bold">Spread</span>
-        <span className="text-white font-bold text-xs">{spread.toFixed(2)}</span>
-        <span className="text-[#8b949e]">{spreadBps.toFixed(3)}%</span>
+        <span className="text-blue-400 font-bold">Eff. Spread (VWAP)</span>
+        <span className="text-white font-bold text-xs">{effSpread > 0 ? effSpread.toFixed(2) : '—'}</span>
+        <span className="text-blue-400 font-bold">{spreadBps.toFixed(2)} bps</span>
       </div>
 
       {/* BIDS */}
       <div className="flex flex-col flex-shrink-0">
-        {snapshot.bids.slice(0, 5).map((bid, i) => (
-          <div key={`b${i}`} className="grid grid-cols-3 px-3 py-[3px] text-[13px] font-mono relative items-center hover:bg-[#161b22]">
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute right-0 top-0 bottom-0 bg-emerald-500/10 transition-all duration-300"
-                style={{ width: `${Math.min(100, (cumBids[i] / (cumBids[cumBids.length - 1] || 1)) * 100)}%` }} />
+        {snapshot.bids.slice(0, 5).map((bid, i) => {
+          const intensity = Math.min(0.6, bid[1] / maxQty * 0.8);
+          return (
+            <div key={`b${i}`} 
+                 className="grid grid-cols-3 px-3 py-[3px] text-[13px] font-mono items-center hover:bg-[#161b22] transition-colors"
+                 style={{ backgroundColor: `rgba(16, 185, 129, ${intensity})` }}>
+              <div className="text-emerald-400 z-10 font-bold">{formatPrice(bid[0])}</div>
+              <div className="text-right text-[#c9d1d9] z-10">{formatQty(bid[1])}</div>
+              <div className="text-right text-[#8b949e] z-10">{formatPrice(bid[0] * bid[1])}</div>
             </div>
-            <div className="text-emerald-400 relative z-10">{formatPrice(bid[0])}</div>
-            <div className="text-right text-[#c9d1d9] relative z-10">{formatQty(bid[1])}</div>
-            <div className="text-right text-[#8b949e] relative z-10">{formatQty(cumBids[i])}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
