@@ -56,17 +56,18 @@
 \vspace{10pt}
 
 \section{Project Overview}
-The Liquidity Intelligence Console is an institutional-grade observability platform designed to benchmark True Markets' core liquidity against top-tier global exchanges (Binance US and Coinbase Pro) in real time. The system's objective is to monitor arbitrary digital assets (BTC, ETH, SOL, XRP) with zero network overlap, enforcing extreme concurrency constraints via a threaded C++ matching engine and a responsive React/Vite visualization client. 
+The Liquidity Intelligence Console is a real-time observability platform designed to benchmark True Markets' liquidity against other exchanges (Kraken, Crypto.com) on the BTC-PYUSD trading pair. The system monitors orderbook depth, spread variance, and execution latency across venues using a threaded C++ data engine and a React/Vite visualization dashboard.
 
 \section{System Architecture \& Technical Achievement}
 The implementation is vertically integrated across two core layers:
 \begin{itemize}[leftmargin=*]
-    \item \textbf{C++ Market Data Engine \& Streaming Ingestion Layer:} Engineered using \texttt{uWebSockets} bridging \texttt{libcurl}. It leverages the \texttt{epoll/kqueue} event loop structure via static \texttt{uSockets.a} linking (SO\_REUSEPORT) to maximize concurrent connections while polling and mapping standardized orderbooks.
-    \item \textbf{React Visualization Dashboard:} Bootstrapped natively on Vite driving Tailwind v4. The UI captures telemetry payloads and converts depth arrays into Bloomberg-style Institutional Dense UI, rendering Native Diagnostics, Microprice mappings, and Recharts Dislocation histories.
+    \item \textbf{C++ Market Data Engine:} Built with \texttt{uWebSockets} and \texttt{libcurl}. The engine polls Kraken and Crypto.com REST APIs for BTC-PYUSD orderbook data, computes spread/depth metrics, and broadcasts JSON payloads to the frontend via WebSocket.
+    \item \textbf{True Markets CeFi Direct WebSocket:} The frontend connects directly to the True Markets CeFi WebSocket (\texttt{wss://uat.truex.co/api/v1}) using unauthenticated DEPTH and EBBO channel subscriptions for real-time orderbook data.
+    \item \textbf{React Visualization Dashboard:} Built on Vite with React and Tailwind v4. Renders side-by-side orderbooks, dislocation history charts, microprice calculations, and a time-aware insight engine.
 \end{itemize}
 
-\subsection{Dynamic API Routing \& Volume Normalization}
-A major achievement was migrating static URLs to dynamic JSON payload listeners in C++. The frontend securely dictates active asset classes and benchmark venues. Given that Coinbase Pro outputs arbitrary API sizing schemas completely different from Binance, an internal Volume Engine intercepts Coinbase books and applies an algorithmic $2.5\times$ base depth normalizer to align standard limits smoothly onto the DOM.
+\subsection{Multi-Venue Data Routing}
+The frontend dictates the active benchmark venue via WebSocket messages to the C++ backend. Since all venues now use the same BTC-PYUSD pair, no volume normalization is needed --- the comparison is direct and honest.
 
 \begin{lstlisting}[caption=Dynamic Exchange Interpolation in C++]
 auto fetch_benchmark = [&](const std::string& asset, const std::string& bench) -> VenueSnapshot {
@@ -107,16 +108,15 @@ In the Vite interface, aesthetics were optimized strictly toward a HFT trading i
 
 \vspace{10pt}
 
-\begin{tcolorbox}[colback=tmblue!5, colframe=tmblue, title=Live Console Demo (Screenshot)]
+\begin{tcolorbox}[colback=tmblue!5, colframe=tmblue, title=Live Console Demo]
     \centering
-    % TODO: INSERT SCREENSHOT HERE
-    % Ensure `dashboard_screenshot.png` is placed in the same folder before compiling
-    \vspace{20pt}
-    \textit{[Replace with \texttt{dashboard\_screenshot.png}]}
-    \vspace{20pt}
+    \textit{Run \texttt{./run\_demo.sh} and open \texttt{http://localhost:5173} for the live dashboard.}
 \end{tcolorbox}
 
+\section{True Markets API Integration}
+The dashboard connects directly to the True Markets CeFi Direct WebSocket at \texttt{wss://uat.truex.co/api/v1} using unauthenticated subscriptions (\texttt{SUBSCRIBE\_NO\_AUTH}). It subscribes to the \texttt{DEPTH} and \texttt{EBBO} channels for the \texttt{BTC-PYUSD} instrument, receiving real-time orderbook snapshots. If the True Markets WebSocket is unavailable, the system automatically falls back to a simulated feed derived from the benchmark venue data.
+
 \section{Conclusion}
-The platform scales flawlessly via isolated background routing and provides comprehensive depth intelligence rendering in under 350ms tick timeframes.
+The platform provides real-time multi-venue liquidity comparison with honest metric sourcing and a clean component architecture designed for extensibility.
 
 \end{document}

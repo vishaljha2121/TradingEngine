@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ZLIB REQUIRED)
 find_package(Threads REQUIRED)
+find_package(CURL REQUIRED)
 
 set(UWS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/uWebSockets)
 set(USOCKETS_DIR ${UWS_DIR}/uSockets)
@@ -31,7 +32,7 @@ target_compile_definitions(liquidity_console PRIVATE LIBUS_NO_SSL)
 # Mac requires CoreFoundation for event loop
 if (APPLE)
     find_library(CORE_FOUNDATION CoreFoundation)
-    target_link_libraries(liquidity_console PRIVATE uSockets ZLIB::ZLIB Threads::Threads ${CORE_FOUNDATION})
+    target_link_libraries(liquidity_console PRIVATE uSockets ZLIB::ZLIB Threads::Threads CURL::libcurl ${CORE_FOUNDATION})
 else()
-    target_link_libraries(liquidity_console PRIVATE uSockets ZLIB::ZLIB Threads::Threads)
+    target_link_libraries(liquidity_console PRIVATE uSockets ZLIB::ZLIB Threads::Threads CURL::libcurl)
 endif()
