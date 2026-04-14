@@ -1,14 +1,12 @@
 import type { VenueSnapshot } from '../types';
 import type { StatusInfo } from '../utils/metrics';
 import { computeSlippageAdvantage } from '../utils/metrics';
-import { formatPrice } from '../utils/formatters';
 import { InfoTooltip } from './InfoTooltip';
 
 interface InsightHeroProps {
   truemarkets: VenueSnapshot;
   benchmark: VenueSnapshot;
   spreadGap: number;
-  midDeviation: number;
   lagMs: number;
   avgLag: number;
   depthRatio: number;
@@ -17,156 +15,140 @@ interface InsightHeroProps {
 }
 
 export function InsightHero({
-  truemarkets, benchmark, spreadGap, midDeviation, lagMs, avgLag, depthRatio, statusInfo, flowRisk
+  truemarkets, benchmark, spreadGap, lagMs, avgLag, depthRatio, statusInfo, flowRisk
 }: InsightHeroProps) {
   const slippageAdv = computeSlippageAdvantage(truemarkets, benchmark);
   const askDepthRatio = benchmark.ask_depth_5 > 0 ? truemarkets.ask_depth_5 / benchmark.ask_depth_5 : 1;
 
-  // Build verdict headline
+  // Build premium verbiage
   let headline = '';
+  let subtext = '';
   if (statusInfo.status === 'Competitive') {
-    headline = 'True Markets is matching or outperforming the benchmark — competitive execution maintained.';
+    headline = 'Competitive Flow Alignment Maintained';
+    subtext = 'True Markets pricing matches the institutional baseline with no significant microstructure penalty.';
   } else if (statusInfo.status === 'Advantageous') {
-    headline = 'True Markets is currently tighter and deeper than the benchmark — flow advantage detected.';
+    headline = 'Liquidity Advantage Detected';
+    subtext = 'True Markets is capturing flow via tighter pricing and superior top-of-book depth.';
   } else if (statusInfo.status === 'Slightly Behind') {
-    const reasons: string[] = [];
-    if (spreadGap > 0.3) reasons.push('its spread is wider');
-    if (depthRatio < 0.6) reasons.push('its liquidity is thinner');
-    if (lagMs > 100) reasons.push('its quotes are lagging');
-    headline = `True Markets is slightly behind the benchmark because ${reasons.join(' and ') || 'of minor dislocations'}.`;
+    headline = 'Marginal Competitiveness Gap';
+    subtext = 'Minor dislocations in pricing or latency are putting top-tier routing at risk.';
   } else {
-    const reasons: string[] = [];
-    if (spreadGap > 1.0) reasons.push('its spread is significantly wider');
-    if (depthRatio < 0.3) reasons.push('its depth is much thinner');
-    if (lagMs > 200) reasons.push('it has severe quote lag');
-    headline = `True Markets is significantly behind — ${reasons.join(', ') || 'multiple metrics degraded'}. Aggressive flow likely routes away.`;
+    headline = 'Severe Microstructure Degradation';
+    subtext = 'Multiple core liquidity parameters have failed benchmark standards. Aggressive flow is routing away.';
   }
 
-  // Evidence rows
-  const evidence = [
-    {
-      signal: 'Spread',
-      finding: spreadGap <= 0
-        ? 'Competitive — matches or beats benchmark'
-        : `Wider by ${spreadGap.toFixed(2)} bps`,
-      source: `TM: ${truemarkets.spread_bps.toFixed(2)} bps | Bench: ${benchmark.spread_bps.toFixed(2)} bps`,
-      ok: spreadGap <= 0,
-    },
-    {
-      signal: 'Latency',
-      finding: lagMs <= 50
-        ? 'No lag event detected'
-        : lagMs <= 100
-          ? `Minor lag: ${lagMs}ms`
-          : `Significant lag: ${lagMs}ms behind benchmark`,
-      source: `Current: ${lagMs}ms | Avg: ${avgLag}ms`,
-      ok: lagMs <= 50,
-    },
-    {
-      signal: 'Depth',
-      finding: depthRatio >= 0.8
-        ? 'Top-5 depth comparable to benchmark'
-        : `Ask depth ${((1 - askDepthRatio) * 100).toFixed(0)}% thinner than benchmark`,
-      source: `Ratio: ${depthRatio.toFixed(2)}× | Slippage: ${slippageAdv >= 0 ? '+' : ''}${slippageAdv.toFixed(2)} bps`,
-      ok: depthRatio >= 0.8,
-    },
+  // Key Driver Chips
+  const chips = [
+    { label: 'Spread', val: spreadGap <= 0 ? 'Tighter' : `+${spreadGap.toFixed(2)} bps`, ok: spreadGap <= 0 },
+    { label: 'Slippage', val: `${slippageAdv >= 0 ? '+' : ''}${slippageAdv.toFixed(2)} bps`, ok: slippageAdv >= 0 },
+    { label: 'Latency', val: `${lagMs}ms`, ok: lagMs <= 100 },
   ];
 
-  // KPI cards
+  // KPI cards metrics
   const spreadColor = spreadGap <= 0 ? '#18C37E' : spreadGap > 1.0 ? '#FF5C5C' : '#F5B942';
-  const midColor = Math.abs(midDeviation) < 1 ? '#A8B3C2' : '#FF5C5C';
+  const slipColor = slippageAdv >= 0 ? '#18C37E' : slippageAdv < -0.5 ? '#FF5C5C' : '#F5B942';
   const lagColor = lagMs <= 50 ? '#18C37E' : lagMs > 100 ? '#FF5C5C' : '#F5B942';
   const riskColor = flowRisk.level === 'LOW' ? '#18C37E' : flowRisk.level === 'HIGH' ? '#FF5C5C' : '#F5B942';
+  const heroColor = statusInfo.status === 'Competitive' ? '#18C37E' : statusInfo.status === 'Advantageous' ? '#6EE7D2' : statusInfo.status === 'Slightly Behind' ? '#F5B942' : '#FF5C5C';
 
   return (
-    <div className="mx-4 mt-2 mb-1 flex-shrink-0">
-      <div className="bg-[#0B1220] border border-[#1F2A3A] rounded-lg overflow-hidden flex" style={{ borderLeft: `4px solid ${statusInfo.status === 'Competitive' ? '#18C37E' : statusInfo.status === 'Advantageous' ? '#6EE7D2' : statusInfo.status === 'Slightly Behind' ? '#F5B942' : '#FF5C5C'}` }}>
+    <div className="mx-4 mt-4 mb-2 flex-shrink-0">
+      <div className="bg-[#0B1220] border border-[#1F2A3A]/70 rounded-xl overflow-hidden flex relative" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
         
-        {/* Left: Verdict + Evidence (6/12) */}
-        <div className="flex-[6] px-5 py-3.5 border-r border-[#1F2A3A]/50">
+        {/* Subtle background gradient on left side for premium feel */}
+        <div className="absolute inset-y-0 left-0 w-1/2 opacity-[0.03] pointer-events-none" style={{ background: `linear-gradient(90deg, ${heroColor}, transparent)` }} />
+
+        {/* Left: Verdict, Summary, Drivers (5/12) */}
+        <div className="flex-[5] flex flex-col justify-center px-6 py-5 border-r border-[#1F2A3A]/40 relative z-10" style={{ borderLeft: `4px solid ${heroColor}` }}>
           {/* Status + Headline */}
-          <div className="flex items-start gap-3 mb-3">
-            <div className={`px-2.5 py-0.5 rounded text-[11px] font-semibold font-ui flex-shrink-0 mt-0.5 ${statusInfo.bgClass} ${statusInfo.textClass}`}>
+          <div className="flex flex-col items-start gap-2 mb-3">
+            <div className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-widest font-bold font-ui ${statusInfo.bgClass} ${statusInfo.textClass}`}>
               {statusInfo.status}
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#4DA3FF] animate-pulse flex-shrink-0 mt-1" />
-              <p className={`text-[15px] font-medium font-ui leading-snug ${statusInfo.textClass}`}>
-                {headline}
-              </p>
-            </div>
+            <h1 className="text-[18px] font-semibold font-ui text-[#E5EDF7] tracking-tight leading-none mt-1">
+              {headline}
+            </h1>
+            <p className="text-[12px] font-ui text-[#A8B3C2] leading-snug max-w-[90%]">
+              {subtext}
+            </p>
           </div>
 
-          {/* Evidence rows */}
-          <div className="flex flex-col">
-            {evidence.map((row, i) => (
-              <div key={i} className="flex items-baseline gap-3 py-1.5 border-t border-[#1F2A3A]/30">
-                <span className="text-[11px] font-bold text-[#8EA0B8] font-ui w-16 flex-shrink-0 uppercase tracking-wide">{row.signal}</span>
-                <span className={`text-[13px] font-ui flex-1 ${row.ok ? 'text-[#18C37E]' : 'text-[#FF5C5C]'}`}>
-                  {row.finding}
-                </span>
-                <span className="text-[11px] font-mono text-[#6F7C8E] flex-shrink-0">{row.source}</span>
+          {/* Key Driver Chips */}
+          <div className="flex gap-2 mt-2">
+            {chips.map((chip, i) => (
+              <div key={i} className={`flex items-center gap-1.5 px-2 py-1 rounded bg-[#0E1728] border ${chip.ok ? 'border-[#18C37E]/20' : 'border-[#FF5C5C]/20'} shadow-sm`}>
+                <span className="text-[10px] uppercase tracking-wide font-ui text-[#6F7C8E]">{chip.label}</span>
+                <span className={`text-[12px] font-mono font-bold ${chip.ok ? 'text-[#18C37E]' : 'text-[#FF5C5C]'}`}>{chip.val}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Right: 4 KPI cards in 2×2 grid (6/12) */}
-        <div className="flex-[6] grid grid-cols-2 gap-0">
-          {/* Spread Gap */}
-          <div className="px-4 py-3 border-b border-r border-[#1F2A3A]/30" style={{ borderLeft: `3px solid ${spreadColor}` }}>
-            <InfoTooltip title="Spread Gap" description="Difference between True Markets and benchmark bid-ask spreads, in basis points." formula="TM spread (bps) − Benchmark spread (bps)">
-              <span className="text-[11px] font-semibold text-[#8EA0B8] uppercase tracking-wide font-ui">Spread Gap</span>
+        {/* Right: 4 KPI cards in 1x4 horizontal layout (7/12) */}
+        <div className="flex-[7] flex z-10 bg-[#0B1220]/80">
+          {/* Slippage Advantage (Promoted KPI) */}
+          <div className="flex-1 px-5 py-4 border-r border-[#1F2A3A]/40 flex flex-col justify-center relative overflow-hidden group">
+            <div className="absolute inset-y-0 left-0 w-[2px]" style={{ backgroundColor: slipColor }} />
+            <InfoTooltip title="Slippage Advantage" description="Estimated slippage cost difference vs benchmark. Positive number = True Markets executes tighter size." formula="benchSlippage − tmSlippage">
+              <span className="text-[11px] font-semibold text-[#8EA0B8] uppercase tracking-wider font-ui group-hover:text-[#A8B3C2] transition-colors duration-200">Slippage</span>
             </InfoTooltip>
-            <div className="mt-1">
-              <span className="text-[22px] font-mono font-bold tracking-tight" style={{ color: spreadColor }}>
+            <div className="mt-1 flex items-baseline">
+              <span className="text-[26px] font-mono font-bold tracking-tight" style={{ color: slipColor }}>
+                {slippageAdv > 0 ? '+' : ''}{slippageAdv.toFixed(2)}
+              </span>
+              <span className="text-[12px] font-mono text-[#6F7C8E] ml-1.5">bps</span>
+            </div>
+            <div className="text-[10px] text-[#6F7C8E] font-ui mt-0.5">Execution savings vs baseline</div>
+          </div>
+
+          {/* Spread Gap */}
+          <div className="flex-1 px-5 py-4 border-r border-[#1F2A3A]/40 flex flex-col justify-center relative overflow-hidden group">
+            <div className="absolute inset-y-0 left-0 w-[2px]" style={{ backgroundColor: spreadColor }} />
+            <InfoTooltip title="Spread Gap" description="Difference between True Markets and benchmark bid-ask spreads." formula="TM spread (bps) − Benchmark spread (bps)">
+              <span className="text-[11px] font-semibold text-[#8EA0B8] uppercase tracking-wider font-ui group-hover:text-[#A8B3C2] transition-colors duration-200">Spread Gap</span>
+            </InfoTooltip>
+            <div className="mt-1 flex items-baseline">
+              <span className="text-[26px] font-mono font-bold tracking-tight" style={{ color: spreadColor }}>
                 {spreadGap > 0 ? '+' : ''}{spreadGap.toFixed(2)}
               </span>
-              <span className="text-[12px] font-mono text-[#6F7C8E] ml-1">bps</span>
+              <span className="text-[12px] font-mono text-[#6F7C8E] ml-1.5">bps</span>
             </div>
             <div className="text-[10px] text-[#6F7C8E] font-ui mt-0.5">Positive = TM wider</div>
           </div>
 
-          {/* Mid-Price Deviation */}
-          <div className="px-4 py-3 border-b border-[#1F2A3A]/30" style={{ borderLeft: `3px solid ${midColor}` }}>
-            <InfoTooltip title="Mid-Price Deviation" description="How far True Markets mid-price diverges from the benchmark mid-price, in basis points." formula="((TM mid − Bench mid) / Bench mid) × 10,000">
-              <span className="text-[11px] font-semibold text-[#8EA0B8] uppercase tracking-wide font-ui">Mid-Price Deviation</span>
-            </InfoTooltip>
-            <div className="mt-1">
-              <span className="text-[22px] font-mono font-bold tracking-tight" style={{ color: midColor }}>
-                {midDeviation > 0 ? '+' : ''}{midDeviation.toFixed(2)}
-              </span>
-              <span className="text-[12px] font-mono text-[#6F7C8E] ml-1">bps</span>
-            </div>
-            <div className="text-[10px] text-[#6F7C8E] font-ui mt-0.5">TM mid vs benchmark mid</div>
-          </div>
-
           {/* Reaction Latency */}
-          <div className="px-4 py-3 border-r border-[#1F2A3A]/30" style={{ borderLeft: `3px solid ${lagColor}` }}>
-            <InfoTooltip title="Reaction Latency" description="Time delay between a benchmark price move and the corresponding True Markets quote update." formula="timestamp(TM update) − timestamp(Benchmark move)">
-              <span className="text-[11px] font-semibold text-[#8EA0B8] uppercase tracking-wide font-ui">Reaction Latency</span>
+          <div className="flex-1 px-5 py-4 border-r border-[#1F2A3A]/40 flex flex-col justify-center relative overflow-hidden group">
+             <div className="absolute inset-y-0 left-0 w-[2px]" style={{ backgroundColor: lagColor }} />
+            <InfoTooltip title="Reaction Latency" description="Time delay between a benchmark price move and the corresponding True Markets quote update.">
+              <span className="text-[11px] font-semibold text-[#8EA0B8] uppercase tracking-wider font-ui group-hover:text-[#A8B3C2] transition-colors duration-200">Latency</span>
             </InfoTooltip>
-            <div className="mt-1">
-              <span className="text-[22px] font-mono font-bold tracking-tight" style={{ color: lagColor }}>
+            <div className="mt-1 flex items-baseline">
+              <span className="text-[26px] font-mono font-bold tracking-tight" style={{ color: lagColor }}>
                 {lagMs}
               </span>
-              <span className="text-[12px] font-mono text-[#6F7C8E] ml-1">ms</span>
+              <span className="text-[12px] font-mono text-[#6F7C8E] ml-1.5">ms</span>
             </div>
             <div className="text-[10px] text-[#6F7C8E] font-ui mt-0.5">Avg over 60s: {avgLag}ms</div>
           </div>
 
           {/* Flow Risk */}
-          <div className="px-4 py-3" style={{ borderLeft: `3px solid ${riskColor}` }}>
-            <InfoTooltip title="Flow Risk" description="Estimated likelihood that order flow will route to the benchmark instead of True Markets, based on spread, depth, and latency." formula="f(spreadGap, depthRatio, lagMs)">
-              <span className="text-[11px] font-semibold text-[#8EA0B8] uppercase tracking-wide font-ui">Flow Risk</span>
+          <div className="flex-1 px-5 py-4 flex flex-col justify-center relative overflow-hidden group">
+             <div className="absolute inset-y-0 left-0 w-[2px]" style={{ backgroundColor: riskColor }} />
+            <InfoTooltip title="Flow Risk" description="Estimated likelihood that order flow will route to the benchmark instead of True Markets.">
+              <span className="text-[11px] font-semibold text-[#8EA0B8] uppercase tracking-wider font-ui group-hover:text-[#A8B3C2] transition-colors duration-200">Flow Risk</span>
             </InfoTooltip>
             <div className="mt-1 flex items-center gap-2">
               <span className="text-[22px] font-mono font-bold tracking-tight" style={{ color: riskColor }}>
                 {flowRisk.level}
               </span>
-              <div className="h-2 w-10 rounded-full opacity-50" style={{ backgroundColor: riskColor }} />
+              <div className="flex-1 flex gap-0.5 max-w-[40px]">
+                 {/* Risk bars */}
+                 <div className={`h-[12px] flex-1 rounded-sm ${riskColor === '#18C37E' ? 'bg-[#18C37E]' : 'bg-[#18C37E]/20'}`} />
+                 <div className={`h-[12px] flex-1 rounded-sm ${riskColor === '#F5B942' ? 'bg-[#F5B942]' : riskColor === '#FF5C5C' ? 'bg-[#F5B942]' : 'bg-[#F5B942]/20'}`} />
+                 <div className={`h-[12px] flex-1 rounded-sm ${riskColor === '#FF5C5C' ? 'bg-[#FF5C5C]' : 'bg-[#FF5C5C]/20'}`} />
+              </div>
             </div>
-            <div className="text-[10px] text-[#6F7C8E] font-ui mt-0.5">{flowRisk.description}</div>
+            <div className="text-[10px] text-[#6F7C8E] font-ui mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{flowRisk.description}</div>
           </div>
         </div>
       </div>
