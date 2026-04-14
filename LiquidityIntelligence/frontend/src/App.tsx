@@ -15,7 +15,7 @@ export default function App() {
   const [asset, setAsset] = useState('BTC');
   const [benchmark, setBenchmark] = useState('Kraken');
   const [history, setHistory] = useState<ChartPoint[]>([]);
-  const [lastUpdate, setLastUpdate] = useState('--:--:--');
+  const [lastUpdate, setLastUpdate] = useState('--/--/----, --:--:-- ---');
 
   const { data: backendData, connected: backendConnected, error: backendError, changeSubscription } = useBackendWS(asset, benchmark);
   const { snapshot: tmLive, connected: tmConnected, usingFallback: tmFallback } = useTrueMarketsWS(asset);
@@ -34,7 +34,7 @@ export default function App() {
     if (!truemarkets || !bench) return;
     const spreadGap = truemarkets.spread_bps - bench.spread_bps;
     const midGap = bench.mid > 0 ? ((truemarkets.mid - bench.mid) / bench.mid) * 10000 : 0;
-    setLastUpdate(new Date().toLocaleTimeString([], { hour12: false }));
+    setLastUpdate(new Date().toLocaleString('en-US', { hour12: false, timeZoneName: 'short' }));
     setHistory(prev => {
       const pt: ChartPoint = {
         time: new Date().toLocaleTimeString([], { hour12: false, second: '2-digit' }),
@@ -66,12 +66,12 @@ export default function App() {
           <TrueMarketsLogo size="sm" />
           <span className="ml-3 text-[14px] font-bold text-[#E5EDF7] font-ui">LiquidityConsole</span>
         </div>
-        <div className="mx-4 mt-4 h-[120px] bg-[#0B1220] border border-[#1F2A3A]/70 rounded-xl animate-pulse" />
+        <div className="mx-4 mt-4 h-[140px] bg-[#0B1220] border border-[#1F2A3A]/70 rounded-xl animate-pulse shadow-sm" />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-3 text-[#4DA3FF]" />
-            <p className="text-[#6F7C8E] text-sm font-ui">
-              {!backendConnected ? 'Connecting to feeds...' : 'Awaiting market data...'}
+            <p className="text-[#6F7C8E] text-sm font-ui tracking-wide">
+              {!backendConnected ? 'ESTABLISHING DATA FEEDS...' : 'AWAITING ORDER BOOK SYNC...'}
             </p>
             {backendError && <p className="text-[#F5B942] text-xs mt-2 font-mono">{backendError}</p>}
           </div>
@@ -86,8 +86,8 @@ export default function App() {
   const benchDepth = bench.bid_depth_5 + bench.ask_depth_5;
   const depthRatio = benchDepth > 0 ? tmDepth / benchDepth : 1;
   const avgLag = history.length > 0 ? Math.round(history.reduce((a, b) => a + b.lagMs, 0) / history.length) : 0;
+  const latencyHistory = history.map(h => h.lagMs);
   
-  // Re-adjust flow risk since we want slippage to be a top KPI
   const slipAdv = computeSlippageAdvantage(truemarkets, bench);
   const flowRiskLevel = spreadGap > 1.0 || slipAdv < -1.0 ? 'HIGH' : spreadGap > 0.2 || slipAdv < 0 ? 'ELEVATED' : 'LOW';
   const flowRiskDesc = flowRiskLevel === 'HIGH' ? 'Major risk of flow routing away' : flowRiskLevel === 'ELEVATED' ? 'Minor leakage to baseline' : 'Flow capture retained';
@@ -102,39 +102,40 @@ export default function App() {
         onAssetChange={handleAssetChange} onBenchmarkChange={handleBenchChange}
       />
 
-      {/* ═══ Row 2: Insight Hero Band ═══ */}
+      {/* ═══ Row 2: V4 Intelligent Hero Command Center ═══ */}
       <InsightHero
         truemarkets={truemarkets} benchmark={bench}
         spreadGap={spreadGap}
         lagMs={realLagMs} avgLag={avgLag} depthRatio={depthRatio}
         statusInfo={statusInfo} flowRisk={{ level: flowRiskLevel, description: flowRiskDesc }}
+        latencyHistory={latencyHistory}
       />
 
-      {/* ═══ Row 3: Body ═══ */}
-      <div className="flex flex-1 gap-4 px-4 pb-4 pt-1 min-h-0">
+      {/* ═══ Row 3: High Density Body ═══ */}
+      <div className="flex flex-1 gap-4 px-4 pb-4 pt-2 min-h-0">
         
-        {/* Left: 2 Primary Charts (7/12) */}
+        {/* Left: Intelligent Spread Tracking (7/12) */}
         <div className="flex-[7] min-h-0 relative">
           <ComparisonCharts history={history} />
         </div>
 
-        {/* Right: Venue Comparison & Order Books (5/12) */}
+        {/* Right: Core Analytics & Orders (5/12) */}
         <div className="flex-[5] flex flex-col gap-3 min-h-0">
           
           {/* Top: Venue Comparison Table (Decision Matrix) */}
-          <div className="flex-1 min-h-0 shadow-sm border border-[#1F2A3A]/70 rounded-xl bg-[#0B1220]">
+          <div className="flex-1 min-h-0">
             <VenueComparisonTable
               truemarkets={truemarkets} benchmark={bench}
               lagMs={realLagMs} benchName={benchmark}
             />
           </div>
 
-          {/* Bottom: Twin Order Books (Raw Supporting Data) */}
-          <div className="flex gap-3 h-[180px] flex-shrink-0">
-            <div className="flex-1 border border-[#1F2A3A]/60 rounded-lg min-h-0 overflow-hidden shadow-sm shadow-black/20">
+          {/* Bottom: Twin Order Books (Raw Supporting Data, Trimmed) */}
+          <div className="flex gap-3 h-[185px] flex-shrink-0">
+            <div className="flex-1 border border-[#1F2A3A]/40 rounded-lg min-h-0 shadow-sm shadow-black/20">
               <OrderBookCard snapshot={truemarkets} title="True Markets" isTrueMarkets />
             </div>
-            <div className="flex-1 border border-[#1F2A3A]/60 rounded-lg min-h-0 overflow-hidden shadow-sm shadow-black/20">
+            <div className="flex-1 border border-[#1F2A3A]/40 rounded-lg min-h-0 shadow-sm shadow-black/20">
               <OrderBookCard snapshot={bench} title={bench.venue} />
             </div>
           </div>
