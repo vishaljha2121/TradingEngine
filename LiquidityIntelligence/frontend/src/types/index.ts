@@ -32,4 +32,5 @@ export interface ChartPoint {
   spreadGap: number;
   midGap: number;
   lagMs: number;
+  slipAdv?: number;
 }

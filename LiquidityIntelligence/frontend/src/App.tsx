@@ -35,12 +35,14 @@ export default function App() {
     const spreadGap = truemarkets.spread_bps - bench.spread_bps;
     const midGap = bench.mid > 0 ? ((truemarkets.mid - bench.mid) / bench.mid) * 10000 : 0;
     setLastUpdate(new Date().toLocaleString('en-US', { hour12: false, timeZoneName: 'short' }));
+    const slip = computeSlippageAdvantage(truemarkets, bench);
     setHistory(prev => {
       const pt: ChartPoint = {
         time: new Date().toLocaleTimeString([], { hour12: false, second: '2-digit' }),
         spreadGap: Number(spreadGap.toFixed(2)),
         midGap: Number(midGap.toFixed(2)),
         lagMs: realLagMs,
+        slipAdv: Number(slip.toFixed(2))
       };
       const h = [...prev, pt];
       if (h.length > 60) h.shift();
