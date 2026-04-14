@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import type { IntelligencePayload, VenueSnapshot } from '../types';
+import type { IntelligencePayload } from '../types';
 
 interface UseWebSocketReturn {
   data: IntelligencePayload | null;

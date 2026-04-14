@@ -1,5 +1,3 @@
-import React from 'react';
-
 export function TrueMarketsLogo({ size = 'sm' }: { size?: 'sm' | 'md'; className?: string }) {
   const h = size === 'md' ? 24 : 16;
   const w = size === 'md' ? 160 : 120;

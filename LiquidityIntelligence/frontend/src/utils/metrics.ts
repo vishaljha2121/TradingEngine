@@ -43,42 +43,61 @@ export function computeSlippageBps(levels: Level[], mid: number, targetSize: num
   return side === 'buy' ? ((vwap - mid) / mid) * 10000 : ((mid - vwap) / mid) * 10000;
 }
 
-export function getEffectiveSpread(snap: VenueSnapshot): { spreadBps: number; bidMicro: number; askMicro: number } {
-  // Use sum of top 5 levels for a realistic deep VWAP spread
+export function getEffectiveSpread(snap: VenueSnapshot): { spreadBps: number; bidVwap: number; askVwap: number } {
   const totalBidQty = snap.bids.reduce((sum, b) => sum + b[1], 0);
   const totalAskQty = snap.asks.reduce((sum, a) => sum + a[1], 0);
   
-  const bidMicro = computeVWAP(snap.bids, totalBidQty);
-  const askMicro = computeVWAP(snap.asks, totalAskQty);
+  const bidVwap = computeVWAP(snap.bids, totalBidQty);
+  const askVwap = computeVWAP(snap.asks, totalAskQty);
   
-  const spreadBps = snap.mid > 0 ? Math.abs((askMicro - bidMicro) / snap.mid) * 10000 : 0;
-  return { spreadBps, bidMicro: bidMicro || snap.mid, askMicro: askMicro || snap.mid };
+  const spreadBps = snap.mid > 0 ? Math.abs((askVwap - bidVwap) / snap.mid) * 10000 : 0;
+  return { spreadBps, bidVwap: bidVwap || snap.mid, askVwap: askVwap || snap.mid };
 }
 
 export function computeSlippageAdvantage(tm: VenueSnapshot, bench: VenueSnapshot): number {
   if (bench.bids.length === 0 || bench.asks.length === 0 || tm.bids.length === 0 || tm.asks.length === 0) return 0;
-  
-  // Use total depth of level 1 for standard slippage order size
   const targetSize = bench.bids[0][1] + bench.asks[0][1];
-  
   const tmSlippageBuy = computeSlippageBps(tm.asks, tm.mid, targetSize, 'buy');
   const benchSlippageBuy = computeSlippageBps(bench.asks, bench.mid, targetSize, 'buy');
-  
   return benchSlippageBuy - tmSlippageBuy;
+}
+
+export type OverallStatus = 'Competitive' | 'Slightly Behind' | 'Significantly Behind' | 'Advantageous';
+
+export interface StatusInfo {
+  status: OverallStatus;
+  bgClass: string;
+  textClass: string;
+}
+
+export function computeOverallStatus(spreadGap: number, depthRatio: number, lagMs: number): StatusInfo {
+  // Advantageous: TM tighter AND deeper
+  if (spreadGap < -0.1 && depthRatio >= 1.0) {
+    return { status: 'Advantageous', bgClass: 'bg-[#0E2E2E]', textClass: 'text-[#6EE7D2]' };
+  }
+  // Significantly Behind: spread > 1bps wider OR depth < 30% OR lag > 200ms
+  if (spreadGap > 1.0 || depthRatio < 0.3 || lagMs > 200) {
+    return { status: 'Significantly Behind', bgClass: 'bg-[#3A1616]', textClass: 'text-[#FF8585]' };
+  }
+  // Slightly Behind: spread > 0.3 wider OR depth < 60%
+  if (spreadGap > 0.3 || depthRatio < 0.6 || lagMs > 100) {
+    return { status: 'Slightly Behind', bgClass: 'bg-[#3A2B10]', textClass: 'text-[#FFD36E]' };
+  }
+  // Competitive
+  return { status: 'Competitive', bgClass: 'bg-[#103220]', textClass: 'text-[#6EE7A8]' };
 }
 
 export function computeFlowRisk(spreadGap: number, depthRatio: number, lagMs: number): {
   level: 'LOW' | 'MEDIUM' | 'HIGH';
-  colorClass: string;
   description: string;
 } {
   if (spreadGap > 1.0 || depthRatio < 0.3 || lagMs > 100) {
-    return { level: 'HIGH', colorClass: 'text-red-400 bg-red-950/40 border-red-500/50', description: 'Aggressive flow routes away.' };
+    return { level: 'HIGH', description: 'Aggressive flow routes away' };
   }
   if (spreadGap > 0.4 || depthRatio < 0.6) {
-    return { level: 'MEDIUM', colorClass: 'text-yellow-400 bg-yellow-950/40 border-yellow-500/50', description: 'Minor spread dislocation detected.' };
+    return { level: 'MEDIUM', description: 'Minor spread dislocation' };
   }
-  return { level: 'LOW', colorClass: 'text-emerald-400 bg-emerald-950/40 border-emerald-500/50', description: 'Competitive execution maintained.' };
+  return { level: 'LOW', description: 'Competitive execution maintained' };
 }
 
 export function detectPatterns(history: ChartPoint[]): string[] {
@@ -87,7 +106,6 @@ export function detectPatterns(history: ChartPoint[]): string[] {
   const recent = history.slice(-10);
   const older = history.slice(-20, -10);
 
-  // Spread trend detection
   const recentAvgSpread = recent.reduce((a, b) => a + b.spreadGap, 0) / recent.length;
   if (older.length > 0) {
     const olderAvgSpread = older.reduce((a, b) => a + b.spreadGap, 0) / older.length;
@@ -99,14 +117,12 @@ export function detectPatterns(history: ChartPoint[]): string[] {
     }
   }
 
-  // Lag spike detection
   const maxRecentLag = Math.max(...recent.map(p => p.lagMs));
   const avgLag = recent.reduce((a, b) => a + b.lagMs, 0) / recent.length;
   if (maxRecentLag > 200 && avgLag > 100) {
     insights.push(`Sustained latency: avg ${avgLag.toFixed(0)}ms over last ${recent.length} ticks.`);
   }
 
-  // Price deviation detection
   const maxMidGap = Math.max(...recent.map(p => p.midGap));
   if (maxMidGap > 5) {
     insights.push(`Mid-price divergence peaked at ${maxMidGap.toFixed(1)} bps — potential arbitrage window.`);

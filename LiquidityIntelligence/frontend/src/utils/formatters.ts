@@ -6,11 +6,19 @@ export function formatPrice(p: number | undefined): string {
 
 export function formatQty(q: number | undefined): string {
   if (!q) return "0.000";
-  return q > 1000 ? Math.round(q).toString() : q.toFixed(3);
+  return q > 1000 ? Math.round(q).toLocaleString('en-US') : q.toFixed(3);
 }
 
 export function formatBps(bps: number): string {
   return `${bps > 0 ? '+' : ''}${bps.toFixed(2)} bps`;
+}
+
+export function formatSignedBps(bps: number): string {
+  return `${bps > 0 ? '+' : ''}${bps.toFixed(2)}`;
+}
+
+export function formatLag(ms: number): string {
+  return `${Math.round(ms)}ms`;
 }
 
 export function formatNotional(price: number, qty: number): string {
@@ -18,4 +26,8 @@ export function formatNotional(price: number, qty: number): string {
   if (notional > 1_000_000) return `$${(notional / 1_000_000).toFixed(2)}M`;
   if (notional > 1_000) return `$${(notional / 1_000).toFixed(1)}K`;
   return `$${notional.toFixed(2)}`;
+}
+
+export function formatPct(val: number): string {
+  return `${val > 0 ? '+' : ''}${val.toFixed(1)}%`;
 }
