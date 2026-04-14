@@ -62,7 +62,7 @@ export function computeSlippageAdvantage(tm: VenueSnapshot, bench: VenueSnapshot
   return benchSlippageBuy - tmSlippageBuy;
 }
 
-export type OverallStatus = 'Competitive' | 'Slightly Behind' | 'Significantly Behind' | 'Advantageous';
+export type OverallStatus = 'Advantageous' | 'Competitive' | 'Pressured' | 'Degraded';
 
 export interface StatusInfo {
   status: OverallStatus;
@@ -75,13 +75,13 @@ export function computeOverallStatus(spreadGap: number, depthRatio: number, lagM
   if (spreadGap < -0.1 && depthRatio >= 1.0) {
     return { status: 'Advantageous', bgClass: 'bg-[#0E2E2E]', textClass: 'text-[#6EE7D2]' };
   }
-  // Significantly Behind: spread > 1bps wider OR depth < 30% OR lag > 200ms
+  // Degraded: spread > 1bps wider OR depth < 30% OR lag > 200ms
   if (spreadGap > 1.0 || depthRatio < 0.3 || lagMs > 200) {
-    return { status: 'Significantly Behind', bgClass: 'bg-[#3A1616]', textClass: 'text-[#FF8585]' };
+    return { status: 'Degraded', bgClass: 'bg-[#3A1616]', textClass: 'text-[#FF8585]' };
   }
-  // Slightly Behind: spread > 0.3 wider OR depth < 60%
+  // Pressured: spread > 0.3 wider OR depth < 60%
   if (spreadGap > 0.3 || depthRatio < 0.6 || lagMs > 100) {
-    return { status: 'Slightly Behind', bgClass: 'bg-[#3A2B10]', textClass: 'text-[#FFD36E]' };
+    return { status: 'Pressured', bgClass: 'bg-[#3A2B10]', textClass: 'text-[#FFD36E]' };
   }
   // Competitive
   return { status: 'Competitive', bgClass: 'bg-[#103220]', textClass: 'text-[#6EE7A8]' };
