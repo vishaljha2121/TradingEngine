@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import type { VenueSnapshot } from '../types';
 import { formatPrice, formatQty } from '../utils/formatters';
-import { getEffectiveSpread, getImbalance } from '../utils/metrics';
+import { getEffectiveSpread } from '../utils/metrics';
 import { TrueMarketsIcon } from './TrueMarketsLogo';
+import { InfoTooltip } from './InfoTooltip';
 
 interface OrderBookCardProps {
   snapshot: VenueSnapshot;
@@ -20,7 +21,6 @@ export function OrderBookCard({ snapshot, title, isTrueMarkets = false }: OrderB
   }, [snapshot]);
 
   const { spreadBps } = getEffectiveSpread(snapshot);
-  const imbalance = getImbalance(snapshot);
   const bestBid = snapshot.bids[0]?.[0] ?? 0;
   const bestAsk = snapshot.asks[0]?.[0] ?? 0;
   const rawSpread = bestAsk - bestBid;
@@ -35,33 +35,34 @@ export function OrderBookCard({ snapshot, title, isTrueMarkets = false }: OrderB
   }, [snapshot.asks]);
   const maxCum = Math.max(cumBids[cumBids.length - 1] ?? 1, cumAsks[cumAsks.length - 1] ?? 1, 0.001);
 
+  const accentColor = isTrueMarkets ? '#4DA3FF' : '#6F7C8E';
+
   return (
-    <div className="flex flex-col h-full bg-[#0B1220] overflow-hidden">
+    <div className="flex flex-col h-full bg-[#0B1220] overflow-hidden" style={{ borderLeft: `3px solid ${accentColor}` }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[#1F2A3A] flex-shrink-0">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#1F2A3A] flex-shrink-0">
         <div className="flex items-center gap-2">
           {isTrueMarkets && <TrueMarketsIcon size={14} />}
-          <span className="text-[13px] font-bold text-[#E5EDF7] font-ui">{title}</span>
+          <span className="text-[12px] font-bold text-[#E5EDF7] font-ui">{title}</span>
         </div>
-        <div className="flex items-center gap-3 text-[10px] font-mono text-[#6F7C8E]">
+        <div className="flex items-center gap-2.5 text-[10px] font-mono text-[#6F7C8E]">
           <span>Mid: <span className="text-[#A8B3C2] font-semibold">{formatPrice(snapshot.mid)}</span></span>
-          <span>Sprd: <span className="text-[#A8B3C2] font-semibold">{rawSpread.toFixed(2)}</span></span>
-          <span>Eff: <span className="text-[#4DA3FF] font-semibold">{spreadBps.toFixed(2)}bps</span></span>
-          <span className={imbalance > 0 ? 'text-[#18C37E]' : 'text-[#FF5C5C]'}>
-            IMB {imbalance > 0 ? '+' : ''}{imbalance.toFixed(0)}%
-          </span>
+          <span>Spread: <span className="text-[#A8B3C2] font-semibold">{rawSpread.toFixed(2)}</span></span>
+          <InfoTooltip title="Effective Spread" description="Depth-adjusted spread using VWAP across all visible book levels.">
+            <span>Eff: <span className="text-[#4DA3FF] font-semibold">{spreadBps.toFixed(2)}bps</span></span>
+          </InfoTooltip>
         </div>
       </div>
 
       {/* Column headers */}
-      <div className="grid grid-cols-[1fr_1fr_1fr_60px] text-[10px] tracking-wider font-semibold text-[#6F7C8E] px-3 py-1 border-b border-[#1F2A3A]/50 flex-shrink-0 font-ui">
-        <div>PRICE</div>
-        <div className="text-right">SIZE</div>
-        <div className="text-right">CUM</div>
+      <div className="grid grid-cols-[1fr_1fr_1fr_50px] text-[9px] tracking-wider font-semibold text-[#6F7C8E] px-3 py-1 border-b border-[#1F2A3A]/50 flex-shrink-0 font-ui uppercase">
+        <div>Price</div>
+        <div className="text-right">Size</div>
+        <div className="text-right">Cumul.</div>
         <div />
       </div>
 
-      {/* ASKS (reversed — furthest from mid at top) */}
+      {/* ASKS (reversed) */}
       <div className="flex flex-col-reverse flex-shrink-0">
         {snapshot.asks.slice(0, 5).map((ask, i) => {
           const intensity = Math.min(0.7, (ask[1] / maxQty) * 0.8);
@@ -73,7 +74,7 @@ export function OrderBookCard({ snapshot, title, isTrueMarkets = false }: OrderB
 
           return (
             <div key={`a${i}`}
-              className="grid grid-cols-[1fr_1fr_1fr_60px] px-3 py-[3px] text-[12px] font-mono items-center transition-colors hover:brightness-125"
+              className="grid grid-cols-[1fr_1fr_1fr_50px] px-3 py-[2px] text-[11px] font-mono items-center transition-colors hover:brightness-125"
               style={{ backgroundColor: bgColor }}
             >
               <div className={isTop ? 'text-[#B33A3A] font-bold' : 'text-[#FF5C5C]'}>{formatPrice(ask[0])}</div>
@@ -88,10 +89,10 @@ export function OrderBookCard({ snapshot, title, isTrueMarkets = false }: OrderB
       </div>
 
       {/* Spread separator */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#0A1322] border-y border-[#1F2A3A] text-[11px] font-mono flex-shrink-0">
+      <div className="flex items-center justify-between px-3 py-1 bg-[#0A1322] border-y border-[#1F2A3A] text-[10px] font-mono flex-shrink-0">
         <span className="text-[#6F7C8E] font-semibold font-ui">Spread</span>
         <span className="text-[#E5EDF7] font-bold">{rawSpread.toFixed(2)}</span>
-        <span className="text-[#4DA3FF] font-semibold">{(snapshot.spread_bps).toFixed(2)} bps</span>
+        <span className="text-[#4DA3FF] font-semibold">{snapshot.spread_bps.toFixed(2)} bps</span>
       </div>
 
       {/* BIDS */}
@@ -106,7 +107,7 @@ export function OrderBookCard({ snapshot, title, isTrueMarkets = false }: OrderB
 
           return (
             <div key={`b${i}`}
-              className="grid grid-cols-[1fr_1fr_1fr_60px] px-3 py-[3px] text-[12px] font-mono items-center transition-colors hover:brightness-125"
+              className="grid grid-cols-[1fr_1fr_1fr_50px] px-3 py-[2px] text-[11px] font-mono items-center transition-colors hover:brightness-125"
               style={{ backgroundColor: bgColor }}
             >
               <div className={isTop ? 'text-[#1FAE68] font-bold' : 'text-[#18C37E]'}>{formatPrice(bid[0])}</div>

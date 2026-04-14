@@ -5,14 +5,10 @@ import { computeFlowRisk, computeOverallStatus } from './utils/metrics';
 import { useBackendWS } from './hooks/useWebSocket';
 import { useTrueMarketsWS } from './hooks/useTrueMarketsWS';
 import { HeaderBar } from './components/HeaderBar';
-import { KpiStrip } from './components/KpiStrip';
+import { InsightHero } from './components/InsightHero';
 import { ComparisonCharts } from './components/ComparisonCharts';
 import { OrderBookCard } from './components/OrderBookCard';
-import { LagTimelineCard } from './components/LagTimelineCard';
-import { DepthComparisonCard } from './components/DepthComparisonCard';
-import { CompetitiveSnapshotCard } from './components/CompetitiveSnapshotCard';
-import { InsightPanel } from './components/InsightPanel';
-import { LegendPanel } from './components/LegendPanel';
+import { VenueComparisonTable } from './components/VenueComparisonTable';
 import { TrueMarketsLogo } from './components/TrueMarketsLogo';
 
 export default function App() {
@@ -55,34 +51,27 @@ export default function App() {
   const handleAssetChange = (a: string) => { setAsset(a); setHistory([]); changeSubscription(a, benchmark); };
   const handleBenchChange = (b: string) => { setBenchmark(b); setHistory([]); changeSubscription(asset, b); };
 
-  // Determine feed mode — reflects actual data source
-  // Backend always provides real Kraken/Crypto.com data + TM mock derived from it
-  // TrueMarkets WS is a direct connection attempt (usually fails on UAT)
+  // Feed mode
   const feedMode: 'Live' | 'Fallback Mock' | 'Live (Backend)' | 'Connecting...' =
-    tmConnected && !tmFallback ? 'Live'           // Direct TM WebSocket connected
-    : tmFallback ? 'Fallback Mock'                 // TM WS explicitly failed, using backend mock
-    : backendConnected ? 'Live (Backend)'           // Backend is sending real benchmark data
+    tmConnected && !tmFallback ? 'Live'
+    : tmFallback ? 'Fallback Mock'
+    : backendConnected ? 'Live (Backend)'
     : 'Connecting...';
 
   // ── Loading / skeleton state ──
   if (!truemarkets || !bench) {
     return (
       <div className="h-screen w-screen bg-[#060B14] flex flex-col">
-        {/* Skeleton header */}
-        <div className="h-16 bg-[#0B1220] border-b border-[#1F2A3A] flex items-center px-4">
+        <div className="h-[2px] bg-[#6F7C8E] flex-shrink-0" />
+        <div className="h-14 bg-[#0B1220] border-b border-[#1F2A3A] flex items-center px-4">
           <TrueMarketsLogo size="sm" />
-          <span className="ml-3 text-[15px] font-bold text-[#E5EDF7] font-ui">LiquidityConsole</span>
+          <span className="ml-3 text-[14px] font-bold text-[#E5EDF7] font-ui">LiquidityConsole</span>
         </div>
-        {/* Skeleton KPIs */}
-        <div className="grid grid-cols-6 gap-3 px-4 py-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-[#0B1220] border border-[#1F2A3A] rounded-lg h-[84px] animate-pulse" />
-          ))}
-        </div>
-        {/* Loading message */}
+        {/* Skeleton insight hero */}
+        <div className="mx-4 mt-2 h-[120px] bg-[#0B1220] border border-[#1F2A3A] rounded-lg animate-pulse" />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-[#4DA3FF]" />
+            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-3 text-[#4DA3FF]" />
             <p className="text-[#6F7C8E] text-sm font-ui">
               {!backendConnected ? 'Connecting to feeds...' : 'Awaiting market data...'}
             </p>
@@ -105,71 +94,42 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen bg-[#060B14] text-[#E5EDF7] font-ui flex flex-col overflow-hidden">
-      {/* ═══════════════ Zone 1: Header (64px) ═══════════════ */}
+      {/* ═══ Row 1: Header (56px + 2px accent) ═══ */}
       <HeaderBar
-        asset={asset}
-        benchmark={benchmark}
-        feedMode={feedMode}
-        lastUpdate={lastUpdate}
-        statusInfo={statusInfo}
-        onAssetChange={handleAssetChange}
-        onBenchmarkChange={handleBenchChange}
+        asset={asset} benchmark={benchmark}
+        feedMode={feedMode} lastUpdate={lastUpdate} statusInfo={statusInfo}
+        onAssetChange={handleAssetChange} onBenchmarkChange={handleBenchChange}
       />
 
-      {/* ═══════════════ Zone 2: KPI Strip (96px) ═══════════════ */}
-      <KpiStrip
-        tmMid={truemarkets.mid}
-        tmSpreadBps={truemarkets.spread_bps}
-        benchMid={bench.mid}
-        benchSpreadBps={bench.spread_bps}
-        spreadGap={spreadGap}
-        midDeviation={midDeviation}
-        lagMs={realLagMs}
-        avgLag={avgLag}
-        flowRisk={flowRisk}
+      {/* ═══ Row 2: Insight Hero Band (120px) ═══ */}
+      <InsightHero
+        truemarkets={truemarkets} benchmark={bench}
+        spreadGap={spreadGap} midDeviation={midDeviation}
+        lagMs={realLagMs} avgLag={avgLag} depthRatio={depthRatio}
+        statusInfo={statusInfo} flowRisk={flowRisk}
       />
 
-      {/* ═══════════════ Zone 3: Main Analysis Row ═══════════════ */}
-      <div className="flex flex-1 min-h-0 px-4 gap-3">
-        {/* Left: Comparison Charts (7/12) */}
-        <div className="flex-[7] bg-[#0B1220] border border-[#1F2A3A] rounded-lg min-h-0 overflow-hidden">
+      {/* ═══ Row 3: Body (fills remaining) ═══ */}
+      <div className="flex flex-1 gap-3 px-4 pb-3 pt-1 min-h-0">
+        {/* Left: 3 chart cards stacked (7/12) */}
+        <div className="flex-[7] min-h-0">
           <ComparisonCharts history={history} />
         </div>
 
-        {/* Right: Order Books (5/12) */}
-        <div className="flex-[5] flex flex-col gap-3 min-h-0">
-          <div className="flex-1 border border-[#1F2A3A] rounded-lg min-h-0 overflow-hidden">
+        {/* Right: 2 books + comparison table (5/12) */}
+        <div className="flex-[5] flex flex-col gap-2 min-h-0">
+          <div className="flex-[2] border border-[#1F2A3A] rounded-lg min-h-0 overflow-hidden">
             <OrderBookCard snapshot={truemarkets} title="True Markets" isTrueMarkets />
           </div>
-          <div className="flex-1 border border-[#1F2A3A] rounded-lg min-h-0 overflow-hidden">
+          <div className="flex-[2] border border-[#1F2A3A] rounded-lg min-h-0 overflow-hidden">
             <OrderBookCard snapshot={bench} title={bench.venue} />
           </div>
-        </div>
-      </div>
-
-      {/* ═══════════════ Zone 4: Secondary Analytics (200px) ═══════════════ */}
-      <div className="grid grid-cols-3 gap-3 px-4 pt-3 flex-shrink-0" style={{ height: '200px' }}>
-        <LagTimelineCard history={history} lagMs={realLagMs} />
-        <DepthComparisonCard truemarkets={truemarkets} benchmark={bench} benchName={benchmark} />
-        <CompetitiveSnapshotCard
-          truemarkets={truemarkets} benchmark={bench}
-          spreadGap={spreadGap} lagMs={realLagMs}
-        />
-      </div>
-
-      {/* ═══════════════ Zone 5: Insight + Legend (160px) ═══════════════ */}
-      <div className="flex gap-3 px-4 py-3 flex-shrink-0" style={{ height: '170px' }}>
-        {/* Left: Insight Engine (8/12) */}
-        <div className="flex-[8]">
-          <InsightPanel
-            truemarkets={truemarkets} benchmark={bench}
-            spreadGap={spreadGap} lagMs={realLagMs} depthRatio={depthRatio}
-            statusInfo={statusInfo}
-          />
-        </div>
-        {/* Right: Legend (4/12) */}
-        <div className="flex-[4]">
-          <LegendPanel />
+          <div className="flex-[1] min-h-0">
+            <VenueComparisonTable
+              truemarkets={truemarkets} benchmark={bench}
+              lagMs={realLagMs} benchName={benchmark}
+            />
+          </div>
         </div>
       </div>
     </div>
