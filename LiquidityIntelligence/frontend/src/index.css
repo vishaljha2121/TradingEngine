@@ -1,13 +1,12 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.mjs";
 
 body, html, #root {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  background-color: #060B14;
+  background-color: #08071A;
   color: #E5EDF7;
   font-family: 'Inter', 'SF Pro', system-ui, sans-serif;
   overflow: hidden;
@@ -15,17 +14,77 @@ body, html, #root {
   -moz-osx-font-smoothing: grayscale;
 }
 
+* {
+  box-sizing: border-box;
+}
+
+button, select {
+  font: inherit;
+}
+
+input, select {
+  color-scheme: dark;
+}
+
+select {
+  background-color: #17162F;
+  color: #F3F4FF;
+}
+
+select option {
+  background-color: #111027;
+  color: #F3F4FF;
+}
+
+button {
+  cursor: pointer;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 160ms ease-out;
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #1F2A3A; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #39465A; }
+::-webkit-scrollbar-thumb { background: #252343; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #38365B; }
 
 /* Recharts overrides */
 .recharts-tooltip-wrapper { pointer-events: none !important; }
 
 /* Selection */
 ::selection { background: rgba(77, 163, 255, 0.25); color: #E5EDF7; }
+
+.liquidity-shell {
+  background:
+    radial-gradient(circle at 110% -14%, rgba(255, 255, 255, 0.09) 0 11%, transparent 11.2%),
+    radial-gradient(circle at 112% 32%, rgba(255, 255, 255, 0.045) 0 19%, transparent 19.2%),
+    linear-gradient(135deg, rgba(20, 19, 49, 0.96), rgba(8, 7, 26, 1) 42%, rgba(5, 4, 17, 1));
+}
+
+.panel-surface {
+  background: linear-gradient(180deg, rgba(21, 20, 47, 0.96), rgba(17, 16, 39, 0.96));
+  border: 1px solid rgba(43, 41, 82, 0.86);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.24);
+}
+
+.dashboard-canvas {
+  background: rgba(12, 10, 33, 0.28);
+  border-left: 1px solid rgba(43, 41, 82, 0.28);
+  border-right: 1px solid rgba(43, 41, 82, 0.28);
+}
 
 /* Tooltip utility */
 .tooltip-card {

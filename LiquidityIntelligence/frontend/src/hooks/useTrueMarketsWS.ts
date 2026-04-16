@@ -10,14 +10,36 @@ interface TrueMarketsWSReturn {
   usingFallback: boolean;
 }
 
-function buildSnapshot(depthData: any): VenueSnapshot {
-  const bids: [number, number][] = (depthData.bids || []).slice(0, 5).map((b: any) => [
-    parseFloat(b.price || b[0]),
-    parseFloat(b.qty || b[1])
+type RawLevel = [number | string, number | string] | { price?: number | string; qty?: number | string };
+
+interface DepthData {
+  bids?: RawLevel[];
+  asks?: RawLevel[];
+}
+
+interface EbboInfo {
+  best_bid?: { price: number | string; qty: number | string };
+  best_ask?: { price: number | string; qty: number | string };
+}
+
+interface TrueMarketsMessage {
+  channel?: string;
+  data?: DepthData | { info?: EbboInfo };
+}
+
+function levelValue(level: RawLevel, key: 'price' | 'qty', index: 0 | 1): number {
+  const raw = Array.isArray(level) ? level[index] : level[key];
+  return typeof raw === 'number' ? raw : parseFloat(raw ?? '0');
+}
+
+function buildSnapshot(depthData: DepthData): VenueSnapshot {
+  const bids: [number, number][] = (depthData.bids || []).slice(0, 5).map((b) => [
+    levelValue(b, 'price', 0),
+    levelValue(b, 'qty', 1)
   ]);
-  const asks: [number, number][] = (depthData.asks || []).slice(0, 5).map((a: any) => [
-    parseFloat(a.price || a[0]),
-    parseFloat(a.qty || a[1])
+  const asks: [number, number][] = (depthData.asks || []).slice(0, 5).map((a) => [
+    levelValue(a, 'price', 0),
+    levelValue(a, 'qty', 1)
   ]);
 
   const bestBid = bids[0]?.[0] || 0;
@@ -33,8 +55,8 @@ function buildSnapshot(depthData: any): VenueSnapshot {
     spread_bps: spreadBps,
     bid_depth_5: bidDepth,
     ask_depth_5: askDepth,
-    bids: bids as any,
-    asks: asks as any,
+    bids,
+    asks,
   };
 }
 
@@ -46,6 +68,7 @@ export function useTrueMarketsWS(asset: string = 'BTC'): TrueMarketsWSReturn {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const failCount = useRef(0);
+  const connectRef = useRef<() => void>(() => {});
 
   const symbol = `${asset}-PYUSD`;
 
@@ -56,6 +79,7 @@ export function useTrueMarketsWS(asset: string = 'BTC'): TrueMarketsWSReturn {
       setError('TrueMarkets WS unavailable — using simulated data');
       return;
     }
+    setUsingFallback(false);
 
     try {
       const ws = new WebSocket(TRUEX_WS_URL);
@@ -78,20 +102,22 @@ export function useTrueMarketsWS(asset: string = 'BTC'): TrueMarketsWSReturn {
 
       ws.onmessage = (e) => {
         try {
-          const msg = JSON.parse(e.data);
+          const msg = JSON.parse(e.data) as TrueMarketsMessage;
 
           if (msg.channel === 'DEPTH' && msg.data) {
-            setSnapshot(buildSnapshot(msg.data));
+            setSnapshot(buildSnapshot(msg.data as DepthData));
           }
 
-          if (msg.channel === 'EBBO' && msg.data?.info) {
+          if (msg.channel === 'EBBO' && msg.data && 'info' in msg.data && msg.data.info) {
             const info = msg.data.info;
             if (info.best_bid && info.best_ask) {
+              const bestBid = info.best_bid;
+              const bestAsk = info.best_ask;
               // Update with EBBO best bid/ask if we don't have depth yet
               setSnapshot(prev => {
                 if (prev && prev.bids.length > 0) return prev; // DEPTH takes priority
-                const bid = [parseFloat(info.best_bid.price), parseFloat(info.best_bid.qty)];
-                const ask = [parseFloat(info.best_ask.price), parseFloat(info.best_ask.qty)];
+                const bid: [number, number] = [Number(bestBid.price), Number(bestBid.qty)];
+                const ask: [number, number] = [Number(bestAsk.price), Number(bestAsk.qty)];
                 const mid = (bid[0] + ask[0]) / 2;
                 return {
                   venue: 'TrueMarkets',
@@ -99,8 +125,8 @@ export function useTrueMarketsWS(asset: string = 'BTC'): TrueMarketsWSReturn {
                   spread_bps: mid > 0 ? ((ask[0] - bid[0]) / mid) * 10000 : 0,
                   bid_depth_5: bid[1],
                   ask_depth_5: ask[1],
-                  bids: [bid as any],
-                  asks: [ask as any],
+                  bids: [bid],
+                  asks: [ask],
                 };
               });
             }
@@ -115,7 +141,7 @@ export function useTrueMarketsWS(asset: string = 'BTC'): TrueMarketsWSReturn {
         failCount.current++;
         const delay = Math.min(2000 * Math.pow(2, failCount.current), 15000);
         setError(`TrueMarkets WS disconnected. Retry ${failCount.current}/3...`);
-        reconnectTimer.current = setTimeout(connect, delay);
+        reconnectTimer.current = setTimeout(() => connectRef.current(), delay);
       };
 
       ws.onerror = () => {
@@ -129,10 +155,14 @@ export function useTrueMarketsWS(asset: string = 'BTC'): TrueMarketsWSReturn {
   }, [symbol]);
 
   useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
+
+  useEffect(() => {
     failCount.current = 0;
-    setUsingFallback(false);
-    connect();
+    const initialTimer = setTimeout(() => connectRef.current(), 0);
     return () => {
+      clearTimeout(initialTimer);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
     };

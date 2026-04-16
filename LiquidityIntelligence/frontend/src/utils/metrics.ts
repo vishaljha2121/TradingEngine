@@ -55,11 +55,16 @@ export function getEffectiveSpread(snap: VenueSnapshot): { spreadBps: number; bi
 }
 
 export function computeSlippageAdvantage(tm: VenueSnapshot, bench: VenueSnapshot): number {
-  if (bench.bids.length === 0 || bench.asks.length === 0 || tm.bids.length === 0 || tm.asks.length === 0) return 0;
-  const targetSize = bench.bids[0][1] + bench.asks[0][1];
-  const tmSlippageBuy = computeSlippageBps(tm.asks, tm.mid, targetSize, 'buy');
-  const benchSlippageBuy = computeSlippageBps(bench.asks, bench.mid, targetSize, 'buy');
-  return benchSlippageBuy - tmSlippageBuy;
+  if (bench.asks.length === 0 || tm.asks.length === 0) return 0;
+  const targetSize = bench.asks[0][1];
+  if (targetSize <= 0) return 0;
+
+  const tmVwap = computeVWAP(tm.asks, targetSize);
+  const benchVwap = computeVWAP(bench.asks, targetSize);
+  if (tmVwap === 0 || benchVwap === 0) return 0;
+
+  // Positive bps means True Markets is cheaper for the representative market buy.
+  return ((benchVwap - tmVwap) / benchVwap) * 10000;
 }
 
 export type OverallStatus = 'Advantageous' | 'Competitive' | 'Pressured' | 'Degraded';

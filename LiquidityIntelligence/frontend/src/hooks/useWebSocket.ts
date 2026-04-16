@@ -16,6 +16,7 @@ export function useBackendWS(initialAsset: string, initialBenchmark: string): Us
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempts = useRef(0);
   const configRef = useRef({ asset: initialAsset, benchmark: initialBenchmark });
+  const connectRef = useRef<() => void>(() => {});
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -40,7 +41,7 @@ export function useBackendWS(initialAsset: string, initialBenchmark: string): Us
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
       reconnectAttempts.current++;
       setError(`Disconnected. Reconnecting in ${Math.round(delay / 1000)}s...`);
-      reconnectTimer.current = setTimeout(connect, delay);
+      reconnectTimer.current = setTimeout(() => connectRef.current(), delay);
     };
 
     ws.onerror = () => {
@@ -68,6 +69,10 @@ export function useBackendWS(initialAsset: string, initialBenchmark: string): Us
       }
     };
   }, []);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     connect();

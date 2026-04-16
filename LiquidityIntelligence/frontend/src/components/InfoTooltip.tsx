@@ -34,7 +34,7 @@ export function InfoTooltip({ title, description, formula, children }: InfoToolt
         className="inline-flex items-center gap-1.5 cursor-help group/tooltip"
       >
         {children}
-        <Info className="w-[13px] h-[13px] text-[#6F7C8E]/40 group-hover/tooltip:text-[#4DA3FF] transition-colors" />
+        <Info className="w-[13px] h-[13px] text-[#6E7199]/40 group-hover/tooltip:text-[#4DA3FF] transition-colors" />
       </span>
       
       {show && (
@@ -43,15 +43,15 @@ export function InfoTooltip({ title, description, formula, children }: InfoToolt
           className="fixed z-[9999] pointer-events-none"
           style={{ top: pos.top, left: pos.left }}
         >
-          <div className="bg-[#111827] border border-[#1F2A3A] rounded-md shadow-xl px-3 py-2.5 max-w-[280px]">
+          <div className="bg-[#111827] border border-[#252343] rounded-md shadow-xl px-3 py-2.5 max-w-[280px]">
             {/* Pointer triangle */}
             <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-[10px] h-[5px] overflow-hidden">
-              <div className="w-[8px] h-[8px] bg-[#111827] border border-[#1F2A3A] rotate-45 translate-y-[3px] mx-auto" />
+              <div className="w-[8px] h-[8px] bg-[#111827] border border-[#252343] rotate-45 translate-y-[3px] mx-auto" />
             </div>
             <div className="text-[12px] font-bold text-[#E5EDF7] font-ui mb-1">{title}</div>
-            <div className="text-[11px] text-[#A8B3C2] font-ui leading-relaxed">{description}</div>
+            <div className="text-[11px] text-[#A7A9D2] font-ui leading-relaxed">{description}</div>
             {formula && (
-              <code className="text-[10px] font-mono text-[#8EA0B8] mt-1.5 block bg-[#0B1220] rounded px-2 py-1 border border-[#1F2A3A]/50">{formula}</code>
+              <code className="text-[10px] font-mono text-[#A7A9D2] mt-1.5 block bg-[#09081D] rounded px-2 py-1 border border-[#252343]/50">{formula}</code>
             )}
           </div>
         </div>

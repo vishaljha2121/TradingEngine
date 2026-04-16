@@ -20,6 +20,25 @@ A modern trading dashboard built using React and `TailwindCSS`. It dynamically f
 - Rolling Price/Spread Dislocation graph (`recharts`).
 - "Hero Moments" Alert Panel.
 
+## Metric Definition: Slippage Advantage
+
+The console now uses one slippage definition across the C++ engine and React dashboard:
+
+> **Slippage advantage = benchmark ask-side VWAP minus True Markets ask-side VWAP, expressed in basis points.**
+
+The representative order size is the benchmark venue's current best-ask quantity. The engine simulates buying that size through each venue's ask book, computes the fill VWAP for both venues, and reports the relative savings:
+
+```text
+slippage_advantage_bps = ((benchmark_vwap - truemarkets_vwap) / benchmark_vwap) * 10,000
+```
+
+Interpretation:
+- Positive bps: True Markets is cheaper for the representative market buy.
+- Negative bps: True Markets is more expensive than the benchmark.
+- Zero bps: execution cost is roughly at parity.
+
+This is intentionally a simple first-order execution-cost proxy for the demo. In production, the same interface could be extended to configurable order sizes, buy/sell symmetry, fee tiers, maker/taker behavior, and fill probability.
+
 ## How to Test the Full Stack
 
 I have created an automated Boot script just like the last project.

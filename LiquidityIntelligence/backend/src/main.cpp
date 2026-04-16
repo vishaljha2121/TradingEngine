@@ -64,6 +64,175 @@ double get_depth(const std::vector<Level>& side) {
     return sum;
 }
 
+double compute_slippage(const BookSnapshot& tm, const BookSnapshot& bench) {
+    if (tm.asks.empty() || bench.asks.empty()) return 0.0;
+
+    const double target_size = bench.asks[0].qty;
+    if (target_size <= 0.0) return 0.0;
+
+    auto compute_vwap = [](const std::vector<Level>& levels, double target) {
+        double remaining = target;
+        double notional = 0.0;
+        double executed = 0.0;
+
+        for (const auto& level : levels) {
+            const double fill_qty = std::min(level.qty, remaining);
+            notional += level.price * fill_qty;
+            executed += fill_qty;
+            remaining -= fill_qty;
+            if (remaining <= 0.0) break;
+        }
+
+        return executed > 0.0 ? notional / executed : 0.0;
+    };
+
+    const double tm_vwap = compute_vwap(tm.asks, target_size);
+    const double bench_vwap = compute_vwap(bench.asks, target_size);
+    if (tm_vwap == 0.0 || bench_vwap == 0.0) return 0.0;
+
+    // Positive bps means True Markets is cheaper for the representative market buy.
+    return ((bench_vwap - tm_vwap) / bench_vwap) * 10000.0;
+}
+
+double compute_routing_risk(double spread_gap, double slip_adv, double depth_ratio, double lag) {
+    double score = 0;
+    score += std::min(30.0, std::max(0.0, spread_gap * 15.0));
+    score += std::min(30.0, std::max(0.0, -slip_adv * 10.0));
+    score += std::min(20.0, std::max(0.0, (1.0 - depth_ratio) * 40.0));
+    score += std::min(20.0, std::max(0.0, lag / 10.0));
+    return std::min(100.0, std::max(0.0, score));
+}
+
+// ------- Metric History & Outliers (Phases 6 & 7) -------
+#include <deque>
+
+struct MetricSeriesPoint {
+    uint64_t ts;
+    double value;
+};
+
+struct MetricHistory {
+    std::string key;
+    std::string label;
+    std::string unit;
+    std::deque<MetricSeriesPoint> series;
+    size_t limit = 60;
+    
+    void add(double v) {
+        series.push_back({now_ms(), v});
+        if (series.size() > limit) {
+            series.pop_front();
+        }
+    }
+    
+    // Mean and standard deviation over current series
+    void compute_stats(double& avg, double& stddev, double& min_v, double& max_v) const {
+        avg = 0.0; stddev = 0.0; min_v = 0.0; max_v = 0.0;
+        if (series.empty()) return;
+        
+        min_v = series[0].value;
+        max_v = series[0].value;
+        for (const auto& p : series) {
+            avg += p.value;
+            if (p.value < min_v) min_v = p.value;
+            if (p.value > max_v) max_v = p.value;
+        }
+        avg /= series.size();
+        
+        for (const auto& p : series) {
+            stddev += (p.value - avg) * (p.value - avg);
+        }
+        stddev = std::sqrt(stddev / series.size());
+    }
+    
+    json get_snapshot(bool invert_trend = false, bool invert_outlier = false) const {
+        double avg, stddev, min_v, max_v;
+        compute_stats(avg, stddev, min_v, max_v);
+        
+        // Outlier detection
+        double recent_val = series.empty() ? 0.0 : series.back().value;
+        double zscore = (stddev > 0.001) ? (recent_val - avg) / stddev : 0.0;
+        
+        bool isOutlier = std::abs(zscore) > 2.0;
+        std::string severity = "none";
+        if (isOutlier) {
+            if (std::abs(zscore) > 3.0) severity = "severe";
+            else if (std::abs(zscore) > 2.5) severity = "moderate";
+            else severity = "mild";
+        }
+        
+        // Check sustained: how many recent are outliers? 
+        int sustainedMs = 0;
+        if (isOutlier) {
+            for (auto it = series.rbegin(); it != series.rend(); ++it) {
+                double z = (stddev > 0.001) ? (it->value - avg) / stddev : 0.0;
+                if ((invert_outlier ? -z : z) > 2.0) {
+                    sustainedMs += 500; // rough 500ms bounds per tick
+                } else break;
+            }
+        }
+        
+        // Trend
+        std::string trend = "stable";
+        if (series.size() >= 5) {
+            double r_avg = 0, o_avg = 0;
+            for (size_t i = series.size() - 5; i < series.size(); ++i) r_avg += series[i].value;
+            r_avg /= 5.0;
+            size_t o_start = (series.size() >= 10) ? series.size() - 10 : 0;
+            size_t o_count = series.size() - 5 - o_start;
+            if (o_count > 0) {
+                for (size_t i = o_start; i < series.size() - 5; ++i) o_avg += series[i].value;
+                o_avg /= o_count;
+            }
+            
+            double diff = r_avg - o_avg;
+            double threshold = std::abs(o_avg) * 0.1;
+            if (threshold < 0.5) threshold = 0.5;
+            if (std::abs(diff) > threshold) {
+                bool improving = invert_trend ? diff > 0 : diff < 0;
+                trend = improving ? "improving" : "worsening";
+            }
+        }
+        
+        // Format display value
+        char disp[32];
+        snprintf(disp, sizeof(disp), "%.2f", recent_val);
+        
+        json pts = json::array();
+        for (const auto& p : series) {
+            pts.push_back({{"ts", p.ts}, {"value", p.value}});
+        }
+        
+        return {
+            {"key", key},
+            {"label", label},
+            {"value", recent_val},
+            {"displayValue", disp},
+            {"unit", unit},
+            {"trend", trend},
+            {"series", pts},
+            {"summary", {
+                {"avg", avg}, {"min", min_v}, {"max", max_v},
+                {"stddev", stddev}, {"count", series.size()}
+            }},
+            {"outlier", {
+                {"isOutlier", isOutlier},
+                {"severity", severity},
+                {"sustainedMs", sustainedMs},
+                {"zScore", zscore},
+                {"percentileBand", std::abs(zscore) > 2.0 ? "p95" : "normal"}
+            }}
+        };
+    }
+};
+
+MetricHistory hist_slippage{"slippage_bps", "Slippage Cost", "bps"};
+MetricHistory hist_spread_delta{"spread_delta_bps", "Spread Delta", "bps"};
+MetricHistory hist_latency{"latency_ms", "Latency", "ms"};
+MetricHistory hist_depth{"depth_ratio", "Depth Ratio", "x"};
+MetricHistory hist_routing_risk{"routing_risk_score", "Routing Risk", "/100"};
+
+
 // ------- libcurl HTTP Fetcher -------
 static size_t write_callback(void* contents, size_t size, size_t nmemb, std::string* out) {
     out->append(static_cast<char*>(contents), size * nmemb);
@@ -276,6 +445,20 @@ int main() {
                         for (auto& b : tm_fallback.bids) b.qty *= 0.8;
                         for (auto& a : tm_fallback.asks) a.qty *= 0.8;
                     }
+                    
+                    // Update metric history
+                    double spread_gap = get_spread_bps(tm_fallback) - get_spread_bps(benchmark_latest);
+                    double slip = compute_slippage(tm_fallback, benchmark_latest);
+                    double t_depth = get_depth(tm_fallback.bids) + get_depth(tm_fallback.asks);
+                    double b_depth = get_depth(benchmark_latest.bids) + get_depth(benchmark_latest.asks);
+                    double depth_ratio = b_depth > 0 ? t_depth / b_depth : 1.0;
+                    double risk = compute_routing_risk(spread_gap, slip, depth_ratio, current_lag_ms);
+                    
+                    hist_slippage.add(slip);
+                    hist_spread_delta.add(spread_gap);
+                    hist_latency.add(current_lag_ms);
+                    hist_depth.add(depth_ratio);
+                    hist_routing_risk.add(risk);
                 }
             } else {
                 if (fetch_count <= 3 || fetch_count % 20 == 0)
@@ -305,6 +488,24 @@ int main() {
                 payload["insights"] = build_insights_unlocked();
                 payload["lag_ms"] = current_lag_ms;
                 payload["timestamp"] = now_ms();
+                
+                // Add dashboard meta and snapshots
+                payload["dashboard_meta"] = {
+                    {"feedMode", current_lag_ms == 0 ? "Live" : "Fallback Mock"},
+                    {"isStale", false},
+                    {"staleMs", 0},
+                    {"benchmarkName", active_benchmark},
+                    {"asset", active_asset}
+                };
+                
+                payload["metric_snapshots"] = json::array({
+                    hist_slippage.get_snapshot(true, false),
+                    hist_spread_delta.get_snapshot(false, true),
+                    hist_latency.get_snapshot(false, true),
+                    hist_depth.get_snapshot(true, false),
+                    hist_routing_risk.get_snapshot(false, true)
+                });
+                
                 msg = payload.dump();
             }
             main_loop->defer([&app, msg]() {

@@ -15,7 +15,7 @@ interface InsightHeroProps {
   latencyHistory?: number[]; 
 }
 
-function MiniSparkline({ data, max = 200, color = "#FF5C5C" }: { data: number[], max?: number, color?: string }) {
+function MiniSparkline({ data, max = 200, color = "#F28D3A" }: { data: number[], max?: number, color?: string }) {
   if (!data || data.length === 0) return null;
   const pts = data.slice(-30); 
   const points = pts.map((val, i) => {
@@ -27,7 +27,7 @@ function MiniSparkline({ data, max = 200, color = "#FF5C5C" }: { data: number[],
   return (
     <svg className="w-full h-[22px] opacity-80 mt-1 drop-shadow-md" viewBox="0 0 100 100" preserveAspectRatio="none">
       <polyline points={points} fill="none" stroke={color} strokeWidth="5" strokeLinejoin="round" />
-      <line x1="0" y1="50" x2="100" y2="50" stroke="#F5B942" strokeDasharray="3 3" strokeWidth="2" opacity="0.4" />
+      <line x1="0" y1="50" x2="100" y2="50" stroke="#F3A14A" strokeDasharray="3 3" strokeWidth="2" opacity="0.4" />
     </svg>
   );
 }
@@ -56,35 +56,35 @@ export function InsightHero({
       label: slipOk ? 'EXECUTION SAVINGS' : 'EXECUTION PENALTY', 
       val: `${absSlip.toFixed(2)} bps`, 
       desc: slipOk ? 'Favorable versus benchmark' : 'Worse than benchmark',
-      color: slipOk ? 'text-[#18C37E]' : 'text-[#FF5C5C]',
-      bg: slipOk ? 'bg-[#18C37E]/10 border-[#18C37E]/20' : 'bg-[#FF5C5C]/10 border-[#FF5C5C]/20'
+      color: slipOk ? 'text-[#5E7DFF]' : 'text-[#F28D3A]',
+      bg: slipOk ? 'bg-[#5E7DFF]/10 border-[#5E7DFF]/20' : 'bg-[#F28D3A]/10 border-[#F28D3A]/20'
     },
     { 
       label: 'SPREAD DELTA', 
       val: spreadOk ? 'Tighter' : `+${spreadGap.toFixed(2)} bps`, 
       desc: spreadOk ? 'Matching Benchmark' : 'Wider than Benchmark',
-      color: spreadOk ? 'text-[#18C37E]' : 'text-[#FF5C5C]',
-      bg: spreadOk ? 'bg-[#18C37E]/10 border-[#18C37E]/20' : 'bg-[#FF5C5C]/10 border-[#FF5C5C]/20'
+      color: spreadOk ? 'text-[#5E7DFF]' : 'text-[#F28D3A]',
+      bg: spreadOk ? 'bg-[#5E7DFF]/10 border-[#5E7DFF]/20' : 'bg-[#F28D3A]/10 border-[#F28D3A]/20'
     },
     { 
       label: 'LATENCY', 
       val: `${lagMs}ms`, 
       desc: lagMs <= 100 ? 'Nominal Delay' : 'Spiking Delay',
-      color: lagMs <= 50 ? 'text-[#18C37E]' : lagMs > 100 ? 'text-[#FF5C5C]' : 'text-[#F5B942]',
-      bg: lagMs <= 50 ? 'bg-[#18C37E]/10 border-[#18C37E]/20' : lagMs > 100 ? 'bg-[#FF5C5C]/10 border-[#FF5C5C]/20' : 'bg-[#F5B942]/10 border-[#F5B942]/20'
+      color: lagMs <= 50 ? 'text-[#5E7DFF]' : lagMs > 100 ? 'text-[#F28D3A]' : 'text-[#F3A14A]',
+      bg: lagMs <= 50 ? 'bg-[#5E7DFF]/10 border-[#5E7DFF]/20' : lagMs > 100 ? 'bg-[#F28D3A]/10 border-[#F28D3A]/20' : 'bg-[#F3A14A]/10 border-[#F3A14A]/20'
     },
   ];
 
-  const slipTheme = slipOk ? { border: '#18C37E', bg: 'rgba(24, 195, 126, 0.05)', text: '#18C37E' } : { border: '#FF5C5C', bg: 'rgba(255, 92, 92, 0.06)', text: '#FF5C5C' };
-  const spreadTheme = spreadOk ? { border: '#18C37E', bg: 'rgba(24, 195, 126, 0.05)', text: '#18C37E' } : { border: '#FF5C5C', bg: 'rgba(255, 92, 92, 0.06)', text: '#FF5C5C' };
-  const heroColor = statusInfo.status === 'Competitive' ? '#18C37E' : statusInfo.status === 'Advantageous' ? '#6EE7D2' : statusInfo.status === 'Pressured' ? '#F5B942' : '#FF5C5C';
+  const slipTheme = slipOk ? { border: '#5E7DFF', bg: 'rgba(94, 125, 255, 0.055)', text: '#5E7DFF' } : { border: '#F28D3A', bg: 'rgba(242, 141, 58, 0.07)', text: '#F28D3A' };
+  const spreadTheme = spreadOk ? { border: '#5E7DFF', bg: 'rgba(94, 125, 255, 0.055)', text: '#5E7DFF' } : { border: '#F28D3A', bg: 'rgba(242, 141, 58, 0.07)', text: '#F28D3A' };
+  const heroColor = statusInfo.status === 'Competitive' ? '#5E7DFF' : statusInfo.status === 'Advantageous' ? '#6EE7D2' : statusInfo.status === 'Pressured' ? '#F3A14A' : '#F28D3A';
 
   return (
     <div className="mx-4 mt-3 mb-2 flex-shrink-0">
-      <div className="bg-[#0B1220] border border-[#1F2A3A]/80 rounded-xl overflow-hidden flex relative shadow-sm">
+      <div className="bg-[#111027] border border-[#252343]/80 rounded-xl overflow-hidden flex relative shadow-sm">
         
         {/* Left: Command Center Verdict (4/12) */}
-        <div className="flex-[4] flex flex-col justify-center px-8 py-6 border-r border-[#1F2A3A]/40 relative z-10 bg-[#0E1728]/30">
+        <div className="flex-[4] flex flex-col justify-center px-8 py-6 border-r border-[#252343]/40 relative z-10 bg-[#0E1728]/30">
           <div className="absolute top-0 left-0 bottom-0 w-[4px]" style={{ backgroundColor: heroColor }} />
           
           <div className="mb-6">
@@ -113,7 +113,7 @@ export function InsightHero({
         {/* Right: Premium KPIs (8/12) */}
         <div className="flex-[8] flex">
           {/* 1. SLIPPAGE */}
-          <div className="flex-1 px-9 pt-7 pb-6 border-r border-[#1F2A3A]/40 flex flex-col relative" style={{ backgroundColor: slipTheme.bg }}>
+          <div className="flex-1 px-9 pt-7 pb-6 border-r border-[#252343]/40 flex flex-col relative" style={{ backgroundColor: slipTheme.bg }}>
             <div className="absolute inset-y-0 left-0 w-[4px]" style={{ backgroundColor: slipTheme.border }} />
             <InfoTooltip title="Net Slippage Analysis" description="Absolute magnitude of execution cost or savings against the benchmark.">
               <span className="text-[13px] font-bold text-[#A8B3C2] uppercase tracking-widest font-ui">Slippage Cost Impact</span>
@@ -125,14 +125,14 @@ export function InsightHero({
                 </span>
                 <span className="text-[16px] font-mono text-[#A8B3C2] ml-2 font-bold">bps</span>
               </div>
-              <div className={`text-[12px] font-ui font-semibold inline-flex items-center px-3.5 py-1.5 rounded-full border shadow-sm ${slipOk ? 'bg-[#18C37E]/10 text-[#18C37E] border-[#18C37E]/30' : 'bg-[#FF5C5C]/10 text-[#FF5C5C] border-[#FF5C5C]/30'}`}>
+              <div className={`text-[12px] font-ui font-semibold inline-flex items-center px-3.5 py-1.5 rounded-full border shadow-sm ${slipOk ? 'bg-[#5E7DFF]/10 text-[#5E7DFF] border-[#5E7DFF]/30' : 'bg-[#F28D3A]/10 text-[#F28D3A] border-[#F28D3A]/30'}`}>
                 {slipOk ? 'Execution Cost Savings' : 'Net Execution Penalty'}
               </div>
             </div>
           </div>
 
           {/* 2. SPREAD */}
-          <div className="flex-1 px-9 pt-7 pb-6 border-r border-[#1F2A3A]/40 flex flex-col relative" style={{ backgroundColor: spreadTheme.bg }}>
+          <div className="flex-1 px-9 pt-7 pb-6 border-r border-[#252343]/40 flex flex-col relative" style={{ backgroundColor: spreadTheme.bg }}>
             <div className="absolute inset-y-0 left-0 w-[4px]" style={{ backgroundColor: spreadTheme.border }} />
             <InfoTooltip title="Spread Gap" description="Real-time absolute difference between True Markets and benchmark bid-ask spreads.">
               <span className="text-[13px] font-bold text-[#A8B3C2] uppercase tracking-widest font-ui">Spread Delta</span>
@@ -144,35 +144,35 @@ export function InsightHero({
                 </span>
                 <span className="text-[16px] font-mono text-[#A8B3C2] ml-2 font-bold">bps</span>
               </div>
-              <div className={`text-[12px] font-ui font-semibold inline-flex items-center px-3.5 py-1.5 rounded-full border shadow-sm ${spreadOk ? 'bg-[#18C37E]/10 text-[#18C37E] border-[#18C37E]/30' : 'bg-[#FF5C5C]/10 text-[#FF5C5C] border-[#FF5C5C]/30'}`}>
+              <div className={`text-[12px] font-ui font-semibold inline-flex items-center px-3.5 py-1.5 rounded-full border shadow-sm ${spreadOk ? 'bg-[#5E7DFF]/10 text-[#5E7DFF] border-[#5E7DFF]/30' : 'bg-[#F28D3A]/10 text-[#F28D3A] border-[#F28D3A]/30'}`}>
                 {spreadOk ? 'Matching Benchmark' : 'Wider Pricing Detected'}
               </div>
             </div>
           </div>
 
           {/* 3. LATENCY */}
-          <div className="flex-[0.9] px-8 pt-7 pb-6 border-r border-[#1F2A3A]/40 flex flex-col relative bg-[#0B1220]">
+          <div className="flex-[0.9] px-8 pt-7 pb-6 border-r border-[#252343]/40 flex flex-col relative bg-[#111027]">
             <InfoTooltip title="Reaction Latency Profile" description="Microstructure quotation execution delay with historical trend visualization.">
               <span className="text-[14px] font-bold text-[#A8B3C2] uppercase tracking-widest font-ui">Latency</span>
             </InfoTooltip>
             <div className="mt-auto">
               <div className="flex items-baseline mb-3">
-                <span className={`text-[32px] font-mono font-black tracking-tight tabular-nums ${lagMs <= 50 ? 'text-[#18C37E]' : lagMs > 100 ? 'text-[#FF5C5C]' : 'text-[#F5B942]'}`}>
+                <span className={`text-[32px] font-mono font-black tracking-tight tabular-nums ${lagMs <= 50 ? 'text-[#5E7DFF]' : lagMs > 100 ? 'text-[#F28D3A]' : 'text-[#F3A14A]'}`}>
                   {lagMs}
                 </span>
                 <span className="text-[15px] font-mono text-[#8EA0B8] ml-1.5 font-semibold">ms</span>
               </div>
-              <MiniSparkline data={latencyHistory} max={200} color={lagMs <= 50 ? '#18C37E' : lagMs > 100 ? '#FF5C5C' : '#F5B942'} />
+              <MiniSparkline data={latencyHistory} max={200} color={lagMs <= 50 ? '#5E7DFF' : lagMs > 100 ? '#F28D3A' : '#F3A14A'} />
             </div>
           </div>
 
           {/* 4. ROUTING RISK */}
-          <div className="flex-[1.1] px-8 pt-7 pb-6 flex flex-col relative bg-[#0B1220]">
+          <div className="flex-[1.1] px-8 pt-7 pb-6 flex flex-col relative bg-[#111027]">
             <InfoTooltip title="Routing Deflection Risk" description="Analytical probability model determining if aggressive flow will route to the benchmark.">
               <span className="text-[14px] font-bold text-[#A8B3C2] uppercase tracking-widest font-ui">Routing Risk</span>
             </InfoTooltip>
             <div className="mt-auto mb-1">
-              <div className={`text-[26px] font-mono font-black tracking-widest tabular-nums ${flowRisk.level === 'LOW' ? 'text-[#18C37E]' : flowRisk.level === 'HIGH' ? 'text-[#FF5C5C]' : 'text-[#F5B942]'}`}>
+              <div className={`text-[26px] font-mono font-black tracking-widest tabular-nums ${flowRisk.level === 'LOW' ? 'text-[#5E7DFF]' : flowRisk.level === 'HIGH' ? 'text-[#F28D3A]' : 'text-[#F3A14A]'}`}>
                 {flowRisk.level}
               </div>
               <div className="text-[14px] text-[#A8B3C2] font-ui mt-3 leading-relaxed font-medium">
