@@ -306,7 +306,7 @@ export default function App() {
             </div>
 
             {/* KPI Row */}
-            <div className="grid auto-rows-[128px] grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid auto-rows-[142px] grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               {!dashboardLayout.collapsed.has('kpi-slippage') && (
                 <WidgetFrame
                   id="kpi-slippage" title="Slippage Cost"
