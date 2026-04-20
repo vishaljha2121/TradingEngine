@@ -19,7 +19,26 @@ import { AlertToast } from './components/widgets/AlertToast';
 import { DecisionBand } from './components/widgets/DecisionBand';
 import { ExecutionSimulator } from './components/widgets/ExecutionSimulator';
 import { MarketHealthPanel } from './components/widgets/MarketHealthPanel';
-import type { ExecutionSide } from './utils/executionAnalytics';
+import { ActionCenter } from './components/widgets/ActionCenter';
+import { ReportExportMenu } from './components/widgets/ReportExportMenu';
+import {
+  analyzeExecution,
+  computeLiquidityProviderHealth,
+  computeQuoteFreshness,
+  type ExecutionSide,
+} from './utils/executionAnalytics';
+import {
+  generateOpsRecommendations,
+  type OpsRecommendationSnapshot,
+  type RecommendationRefreshReason,
+} from './utils/recommendations';
+import { useMarketHistoryBuffer } from './hooks/useMarketHistoryBuffer';
+import {
+  buildReportFilename,
+  downloadMarkdownReport,
+  generateMarkdownReport,
+  type ReportWindow,
+} from './utils/reporting';
 
 // ─── Metric History Tracking ───
 interface MetricHistory {
@@ -31,6 +50,8 @@ interface MetricHistory {
 }
 
 const MAX_HISTORY = 60;
+const ACTION_REFRESH_MS = 5 * 60 * 1000;
+const MAX_ACTION_HISTORY = 5;
 
 function computeRoutingRiskScore(spreadGap: number, slipAdv: number, depthRatio: number, lagMs: number): number {
   // Composite routing risk: 0 = safe, 100 = severe
@@ -70,10 +91,14 @@ export default function App() {
   const [metricHistory, setMetricHistory] = useState<MetricHistory>({
     slippage: [], spreadDelta: [], latency: [], depthRatio: [], routingRisk: [],
   });
+  const [actionSnapshot, setActionSnapshot] = useState<OpsRecommendationSnapshot | null>(null);
+  const [actionSnapshotHistory, setActionSnapshotHistory] = useState<OpsRecommendationSnapshot[]>([]);
 
   const dashboardLayout = useDashboardLayout();
   const alerts = useMetricAlerts();
   const checkSnapshotsRef = React.useRef(alerts.checkSnapshots);
+  const latestRecommendationsRef = React.useRef<ReturnType<typeof generateOpsRecommendations>>([]);
+  const actionSnapshotRef = React.useRef<OpsRecommendationSnapshot | null>(null);
 
   const { data: backendData, connected: backendConnected, error: backendError, changeSubscription } = useBackendWS(asset, benchmark);
   const { snapshot: tmLive, connected: tmConnected, usingFallback: tmFallback } = useTrueMarketsWS(asset);
@@ -148,6 +173,186 @@ export default function App() {
     : backendConnected ? 'Live (Backend)'
     : 'Connecting...';
 
+  // ── Computed metrics ──
+  const spreadGap = truemarkets && bench ? truemarkets.spread_bps - bench.spread_bps : 0;
+  const midGap = truemarkets && bench && bench.mid > 0 ? ((truemarkets.mid - bench.mid) / bench.mid) * 10000 : 0;
+  const tmDepth = truemarkets ? truemarkets.bid_depth_5 + truemarkets.ask_depth_5 : 0;
+  const benchDepth = bench ? bench.bid_depth_5 + bench.ask_depth_5 : 0;
+  const depthRatio = benchDepth > 0 ? tmDepth / benchDepth : 1;
+  const slipAdv = truemarkets && bench ? computeSlippageAdvantage(truemarkets, bench) : 0;
+  const riskScore = computeRoutingRiskScore(spreadGap, slipAdv, depthRatio, realLagMs);
+  const flowRiskLevel = riskScore > 60 ? 'HIGH' : riskScore > 30 ? 'ELEVATED' : 'LOW';
+  const statusInfo = computeOverallStatus(spreadGap, depthRatio, realLagMs);
+  const {
+    points: reportHistoryPoints,
+    availableMs: reportAvailableMs,
+    recordPoint: recordReportPoint,
+    getWindowPoints: getReportWindowPoints,
+  } = useMarketHistoryBuffer(`${asset}|${benchmark}`);
+
+  const executionAnalysis = useMemo(
+    () => truemarkets && bench ? analyzeExecution(truemarkets, bench, executionSide, executionSize, 5) : null,
+    [truemarkets, bench, executionSide, executionSize],
+  );
+  const quoteFreshness = useMemo(
+    () => computeQuoteFreshness(realLagMs, feedMode),
+    [realLagMs, feedMode],
+  );
+  const lpHealth = useMemo(
+    () => computeLiquidityProviderHealth(spreadGap, executionAnalysis?.edgeBps ?? slipAdv, depthRatio, quoteFreshness),
+    [spreadGap, executionAnalysis?.edgeBps, slipAdv, depthRatio, quoteFreshness],
+  );
+  const executionEdgeBps = executionAnalysis?.edgeBps ?? slipAdv;
+  const tmFillPct = executionAnalysis?.tm.fillPct ?? 0;
+  const recommendations = useMemo(
+    () => truemarkets && bench ? generateOpsRecommendations({
+      asset,
+      benchmarkName: benchmark,
+      spreadGap,
+      midGap,
+      lagMs: realLagMs,
+      slippageBps: slipAdv,
+      depthRatio,
+      routingRisk: riskScore,
+      executionEdgeBps,
+      tmFillPct,
+      quoteFreshnessScore: quoteFreshness.score,
+      lpHealthScore: lpHealth.score,
+      feedMode,
+      history: reportHistoryPoints,
+    }) : [],
+    [
+      truemarkets,
+      bench,
+      asset,
+      benchmark,
+      spreadGap,
+      midGap,
+      realLagMs,
+      slipAdv,
+      depthRatio,
+      riskScore,
+      executionEdgeBps,
+      tmFillPct,
+      quoteFreshness.score,
+      lpHealth.score,
+      feedMode,
+      reportHistoryPoints,
+    ],
+  );
+
+  React.useEffect(() => {
+    latestRecommendationsRef.current = recommendations;
+  }, [recommendations]);
+
+  React.useEffect(() => {
+    actionSnapshotRef.current = actionSnapshot;
+  }, [actionSnapshot]);
+
+  const captureActionSnapshot = React.useCallback((refreshReason: RecommendationRefreshReason) => {
+    const latestRecommendations = latestRecommendationsRef.current;
+    if (latestRecommendations.length === 0) return;
+
+    const capturedAt = Date.now();
+    const nextSnapshot: OpsRecommendationSnapshot = {
+      id: `${capturedAt}-${refreshReason}`,
+      capturedAt,
+      refreshReason,
+      asset,
+      benchmarkName: benchmark,
+      recommendations: latestRecommendations,
+    };
+    const previousSnapshot = actionSnapshotRef.current;
+
+    if (
+      refreshReason !== 'Initial'
+      && previousSnapshot
+      && previousSnapshot.asset === asset
+      && previousSnapshot.benchmarkName === benchmark
+    ) {
+      setActionSnapshotHistory((prev) => [previousSnapshot, ...prev].slice(0, MAX_ACTION_HISTORY));
+    }
+
+    actionSnapshotRef.current = nextSnapshot;
+    setActionSnapshot(nextSnapshot);
+  }, [asset, benchmark]);
+
+  React.useEffect(() => {
+    const activeContext = `${asset}|${benchmark}`;
+    if (actionSnapshotRef.current && `${actionSnapshotRef.current.asset}|${actionSnapshotRef.current.benchmarkName}` !== activeContext) {
+      actionSnapshotRef.current = null;
+      setActionSnapshot(null);
+      setActionSnapshotHistory([]);
+    }
+  }, [asset, benchmark]);
+
+  React.useEffect(() => {
+    if (!actionSnapshot && recommendations.length > 0) {
+      captureActionSnapshot('Initial');
+    }
+  }, [actionSnapshot, recommendations.length, captureActionSnapshot]);
+
+  React.useEffect(() => {
+    if (!actionSnapshot) return;
+    const delayMs = Math.max(1000, actionSnapshot.capturedAt + ACTION_REFRESH_MS - Date.now());
+    const timeout = window.setTimeout(() => captureActionSnapshot('Auto'), delayMs);
+    return () => window.clearTimeout(timeout);
+  }, [actionSnapshot, captureActionSnapshot]);
+
+  const displayedRecommendations = actionSnapshot?.recommendations ?? recommendations;
+
+  React.useEffect(() => {
+    if (!truemarkets || !bench) return;
+    const topRecommendation = recommendations[0];
+    recordReportPoint({
+      asset,
+      benchmarkName: benchmark,
+      spreadGap,
+      midGap,
+      lagMs: realLagMs,
+      slippageBps: slipAdv,
+      depthRatio,
+      routingRisk: riskScore,
+      executionEdgeBps,
+      quoteFreshnessScore: quoteFreshness.score,
+      lpHealthScore: lpHealth.score,
+      topRecommendationId: topRecommendation?.id,
+      topRecommendationSeverity: topRecommendation?.severity,
+    });
+  }, [
+    truemarkets,
+    bench,
+    asset,
+    benchmark,
+    spreadGap,
+    midGap,
+    realLagMs,
+    slipAdv,
+    depthRatio,
+    riskScore,
+    executionEdgeBps,
+    quoteFreshness.score,
+    lpHealth.score,
+    recommendations,
+    recordReportPoint,
+  ]);
+
+  const handleExportReport = React.useCallback((windowLabel: ReportWindow) => {
+    const generatedAt = new Date();
+    const windowMs = windowLabel === '1h' ? 60 * 60 * 1000 : 6 * 60 * 60 * 1000;
+    const assetPair = `${asset}-PYUSD`;
+    const markdown = generateMarkdownReport({
+      windowLabel,
+      windowMs,
+      generatedAt,
+      assetPair,
+      benchmarkName: benchmark,
+      points: getReportWindowPoints(windowMs),
+      recommendations: displayedRecommendations,
+    });
+    downloadMarkdownReport(markdown, buildReportFilename(windowLabel, assetPair, generatedAt));
+  }, [asset, benchmark, getReportWindowPoints, displayedRecommendations]);
+
   // ── Loading / skeleton state ──
   if (!truemarkets || !bench) {
     return (
@@ -190,16 +395,6 @@ export default function App() {
     );
   }
 
-  // ── Computed metrics ──
-  const spreadGap = truemarkets.spread_bps - bench.spread_bps;
-  const tmDepth = truemarkets.bid_depth_5 + truemarkets.ask_depth_5;
-  const benchDepth = bench.bid_depth_5 + bench.ask_depth_5;
-  const depthRatio = benchDepth > 0 ? tmDepth / benchDepth : 1;
-  const slipAdv = computeSlippageAdvantage(truemarkets, bench);
-  const riskScore = computeRoutingRiskScore(spreadGap, slipAdv, depthRatio, realLagMs);
-  const flowRiskLevel = riskScore > 60 ? 'HIGH' : riskScore > 30 ? 'ELEVATED' : 'LOW';
-  const statusInfo = computeOverallStatus(spreadGap, depthRatio, realLagMs);
-
   return (
     <div className="liquidity-shell h-screen w-screen text-[#E5EDF7] font-ui flex overflow-hidden">
       <AlertToast events={alerts.activeEvents} onDismiss={alerts.dismissEvent} />
@@ -227,25 +422,33 @@ export default function App() {
               <h1 className="text-[22px] font-semibold tracking-normal text-txt-primary">True Markets Liquidity Intelligence</h1>
               <p className="mt-1 text-[12px] text-txt-muted">Real-time venue quality, executable depth, and routing pressure for the Superday demo.</p>
               </div>
-              <div className="hidden items-center gap-6 rounded bg-[#09081D]/70 px-3 py-2 ring-1 ring-divider/60 md:flex">
-                <div>
-                  <div className="text-[9px] font-semibold uppercase tracking-wide text-txt-muted">Asset</div>
-                  <div className="mt-0.5 font-mono text-[12px] font-semibold text-txt-primary">{asset}-PYUSD</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="hidden items-center gap-6 rounded bg-[#09081D]/70 px-3 py-2 ring-1 ring-divider/60 md:flex">
+                  <div>
+                    <div className="text-[9px] font-semibold uppercase tracking-wide text-txt-muted">Asset</div>
+                    <div className="mt-0.5 font-mono text-[12px] font-semibold text-txt-primary">{asset}-PYUSD</div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] font-semibold uppercase tracking-wide text-txt-muted">Benchmark</div>
+                    <div className="mt-0.5 font-mono text-[12px] font-semibold text-txt-primary">{benchmark}</div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] font-semibold uppercase tracking-wide text-txt-muted">Mid Dev</div>
+                    <div className={`mt-0.5 font-mono text-[12px] font-semibold ${Math.abs(midGap) <= 2 ? 'text-info' : 'text-warning'}`}>{midGap > 0 ? '+' : ''}{midGap.toFixed(2)} bps</div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] font-semibold uppercase tracking-wide text-txt-muted">Mode</div>
+                    <div className="mt-0.5 font-mono text-[12px] font-semibold text-info">{feedMode === 'Live (Backend)' ? 'Live' : feedMode}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-[9px] font-semibold uppercase tracking-wide text-txt-muted">Benchmark</div>
-                  <div className="mt-0.5 font-mono text-[12px] font-semibold text-txt-primary">{benchmark}</div>
-                </div>
-                <div>
-                  <div className="text-[9px] font-semibold uppercase tracking-wide text-txt-muted">Mode</div>
-                  <div className="mt-0.5 font-mono text-[12px] font-semibold text-info">{feedMode === 'Live (Backend)' ? 'Live' : feedMode}</div>
-                </div>
+                <ReportExportMenu availableMs={reportAvailableMs} onExport={handleExportReport} />
               </div>
             </div>
             <DecisionBand
               statusInfo={statusInfo}
               spreadGap={spreadGap}
               slipAdv={slipAdv}
+              midGap={midGap}
               depthRatio={depthRatio}
               lagMs={realLagMs}
               riskScore={riskScore}
@@ -253,7 +456,29 @@ export default function App() {
               asset={asset}
               benchmarkName={benchmark}
               feedMode={feedMode}
+              topRecommendation={displayedRecommendations[0]}
             />
+
+            {!dashboardLayout.collapsed.has('action-center') && (
+              <div className="min-h-[300px]">
+                <WidgetFrame
+                  id="action-center" title="Action Center"
+                  editMode={dashboardLayout.editMode}
+                  onCollapse={() => dashboardLayout.collapseWidget('action-center')}
+                  expandable
+                  expanded={dashboardLayout.expandedWidget === 'action-center'}
+                  onExpand={() => dashboardLayout.expandWidget(dashboardLayout.expandedWidget === 'action-center' ? null : 'action-center')}
+                  noPad
+                >
+                  <ActionCenter
+                    snapshot={actionSnapshot}
+                    history={actionSnapshotHistory}
+                    onRefresh={() => captureActionSnapshot('Manual')}
+                    autoRefreshMs={ACTION_REFRESH_MS}
+                  />
+                </WidgetFrame>
+              </div>
+            )}
 
             <div className="grid min-h-[330px] grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.18fr)_minmax(420px,500px)]">
               {!dashboardLayout.collapsed.has('execution-simulator') && (

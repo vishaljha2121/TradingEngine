@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, Globe2, Mail, RotateCcw, Search, Settings } from 'lucide-react';
+import { Bell, ChevronDown, Globe2, Mail, RotateCcw, Settings } from 'lucide-react';
 import type React from 'react';
 import type { StatusInfo } from '../utils/metrics';
 import { TrueMarketsLogo } from './TrueMarketsLogo';
@@ -32,15 +32,6 @@ export function HeaderBar({
             <div className="text-[13px] font-semibold text-txt-primary">Liquidity Intelligence</div>
             <div className="text-[9px] font-semibold uppercase tracking-wide text-txt-muted">True Markets</div>
           </div>
-        </div>
-
-        <div className="relative mr-4 hidden h-8 min-w-[260px] max-w-[520px] flex-1 items-center lg:flex">
-          <Search className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-txt-muted" />
-          <input
-            aria-label="Search"
-            className="h-full w-full rounded bg-[#09081D] pl-9 pr-3 text-[12px] text-txt-secondary outline-none ring-1 ring-divider/60 transition placeholder:text-txt-muted/75 focus:ring-info/50"
-            placeholder="Search venues, symbols, alerts"
-          />
         </div>
 
         <div className="flex flex-1 items-center justify-start gap-2 lg:flex-none">

@@ -17,6 +17,7 @@ export interface DashboardLayoutActions {
   collapseWidget: (id: WidgetId) => void;
   restoreWidget: (id: WidgetId) => void;
   expandWidget: (id: WidgetId | null) => void;
+  restoreExpandedWidget: () => void;
   resetLayout: () => void;
 }
 
@@ -32,6 +33,17 @@ export function useDashboardLayout(): DashboardLayoutState & DashboardLayoutActi
     saveCollapsedWidgets(collapsed);
   }, [collapsed]);
 
+  useEffect(() => {
+    if (!expandedWidget) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setExpandedWidget(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [expandedWidget]);
+
   const toggleEditMode = useCallback(() => setEditMode(prev => !prev), []);
 
   const collapseWidget = useCallback((id: WidgetId) => {
@@ -40,6 +52,7 @@ export function useDashboardLayout(): DashboardLayoutState & DashboardLayoutActi
       next.add(id);
       return next;
     });
+    setExpandedWidget(prev => prev === id ? null : prev);
   }, []);
 
   const restoreWidget = useCallback((id: WidgetId) => {
@@ -52,6 +65,10 @@ export function useDashboardLayout(): DashboardLayoutState & DashboardLayoutActi
 
   const expandWidget = useCallback((id: WidgetId | null) => {
     setExpandedWidget(id);
+  }, []);
+
+  const restoreExpandedWidget = useCallback(() => {
+    setExpandedWidget(null);
   }, []);
 
   const resetLayout = useCallback(() => {
@@ -69,6 +86,7 @@ export function useDashboardLayout(): DashboardLayoutState & DashboardLayoutActi
     collapseWidget,
     restoreWidget,
     expandWidget,
+    restoreExpandedWidget,
     resetLayout,
   };
 }

@@ -1,11 +1,13 @@
 import { Activity, Gauge, Route, Zap } from 'lucide-react';
 import type React from 'react';
 import type { StatusInfo } from '../../utils/metrics';
+import type { OpsRecommendation } from '../../utils/recommendations';
 
 interface DecisionBandProps {
   statusInfo: StatusInfo;
   spreadGap: number;
   slipAdv: number;
+  midGap: number;
   depthRatio: number;
   lagMs: number;
   riskScore: number;
@@ -13,6 +15,7 @@ interface DecisionBandProps {
   asset: string;
   benchmarkName: string;
   feedMode: string;
+  topRecommendation?: OpsRecommendation;
 }
 
 function formatSigned(value: number, digits = 2) {
@@ -40,6 +43,7 @@ export function DecisionBand({
   statusInfo,
   spreadGap,
   slipAdv,
+  midGap,
   depthRatio,
   lagMs,
   riskScore,
@@ -47,10 +51,12 @@ export function DecisionBand({
   asset,
   benchmarkName,
   feedMode,
+  topRecommendation,
 }: DecisionBandProps) {
   const decision = getDecision(statusInfo.status, riskScore);
   const driver = getPrimaryDriver(spreadGap, slipAdv, depthRatio, lagMs);
   const isLive = feedMode === 'Live' || feedMode === 'Live (Backend)';
+  const headline = topRecommendation ? topRecommendation.title : driver;
 
   return (
     <section className="panel-surface overflow-hidden">
@@ -71,11 +77,19 @@ export function DecisionBand({
           </div>
           <div>
             <h1 className="text-[20px] font-semibold leading-tight tracking-normal text-txt-primary lg:text-[22px]">
-              {decision}: {driver}
+              {decision}: {headline}
             </h1>
             <p className="mt-1 max-w-[860px] text-[13px] leading-5 text-txt-secondary">
-              Execution quality is evaluated from spread, ask-side VWAP slippage, top-5 displayed depth, and quote lag.
+              Execution quality is evaluated from spread, mid deviation, executable VWAP edge, top-5 displayed depth, and quote lag.
             </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <EvidencePill label="Spread Gap" value={`${formatSigned(spreadGap)} bps`} tone={spreadGap <= 0 ? 'good' : spreadGap < 1 ? 'warn' : 'bad'} />
+              <EvidencePill label="Mid Deviation" value={`${formatSigned(midGap)} bps`} tone={Math.abs(midGap) <= 2 ? 'good' : Math.abs(midGap) <= 5 ? 'warn' : 'bad'} />
+              <EvidencePill label="Quote Lag" value={`${Math.round(lagMs)} ms`} tone={lagMs <= 50 ? 'good' : lagMs <= 100 ? 'warn' : 'bad'} />
+              {topRecommendation && (
+                <EvidencePill label="Top Action" value={topRecommendation.urgency} tone={topRecommendation.severity === 'critical' ? 'bad' : topRecommendation.severity === 'warning' ? 'warn' : 'good'} />
+              )}
+            </div>
           </div>
         </div>
 
@@ -87,6 +101,29 @@ export function DecisionBand({
         </div>
       </div>
     </section>
+  );
+}
+
+function EvidencePill({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: 'good' | 'warn' | 'bad';
+}) {
+  const toneClass = tone === 'good'
+    ? 'border-[#5E7DFF]/30 text-[#9AAEFF]'
+    : tone === 'warn'
+      ? 'border-[#F28D3A]/35 text-[#F3A14A]'
+      : 'border-[#FF6B7E]/35 text-[#FF8795]';
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded border bg-[#09081D]/70 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${toneClass}`}>
+      <span className="text-txt-muted">{label}</span>
+      <span className="font-mono normal-case tracking-normal">{value}</span>
+    </span>
   );
 }
 

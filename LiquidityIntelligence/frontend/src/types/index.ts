@@ -109,6 +109,7 @@ export type WidgetId =
   | 'kpi-routing-risk'
   | 'execution-simulator'
   | 'market-health'
+  | 'action-center'
   | 'chart-spread'
   | 'chart-slippage'
   | 'table-liquidity'

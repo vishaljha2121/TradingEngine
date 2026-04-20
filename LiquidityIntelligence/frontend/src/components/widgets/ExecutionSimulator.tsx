@@ -12,6 +12,7 @@ import {
   type ImpactPoint,
 } from '../../utils/executionAnalytics';
 import { formatPrice, formatQty } from '../../utils/formatters';
+import { ChartLegend } from './ChartLegend';
 
 interface ExecutionSimulatorProps {
   truemarkets: VenueSnapshot;
@@ -121,6 +122,14 @@ export function ExecutionSimulator({
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-wide text-txt-primary">Market Impact Curve</div>
               <div className="text-[10px] text-txt-muted">Expected VWAP impact as order size increases</div>
+              <div className="mt-2">
+                <ChartLegend
+                  items={[
+                    { label: 'TrueMarkets', color: '#5E7DFF' },
+                    { label: benchmarkName, color: '#F28D3A' },
+                  ]}
+                />
+              </div>
             </div>
             <div className="font-mono text-[10px] font-semibold uppercase text-txt-muted">bps</div>
           </div>
@@ -128,8 +137,8 @@ export function ExecutionSimulator({
             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
               <AreaChart data={impactCurve} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
                 <CartesianGrid horizontal vertical={false} stroke="#252343" strokeDasharray="4 4" opacity={0.45} />
-                <XAxis dataKey="size" tick={{ fontSize: 10, fill: '#6E7199', fontFamily: 'JetBrains Mono' }} tickFormatter={(value) => `${value}`} tickLine={false} axisLine={{ stroke: '#252343' }} />
-                <YAxis tick={{ fontSize: 10, fill: '#A7A9D2', fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={false} width={42} />
+                <XAxis dataKey="size" tick={{ fontSize: 10, fill: '#6E7199', fontFamily: 'JetBrains Mono' }} tickFormatter={(value) => `${value}`} tickLine={false} axisLine={{ stroke: '#252343' }} label={{ value: 'Order Size (BTC)', position: 'insideBottom', fill: '#6E7199', fontSize: 10, fontFamily: 'Inter', dy: 8 }} />
+                <YAxis tick={{ fontSize: 10, fill: '#A7A9D2', fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={false} width={50} label={{ value: 'Impact (bps)', angle: -90, position: 'insideLeft', fill: '#6E7199', fontSize: 10, fontFamily: 'Inter', dy: 36 }} />
                 <Tooltip content={<ImpactTooltip benchmarkName={benchmarkName} />} />
                 <Area type="monotone" dataKey="benchmarkImpactBps" stroke="#F28D3A" strokeWidth={1.8} fill="#F28D3A" fillOpacity={0.08} dot={false} isAnimationActive={false} />
                 <Area type="monotone" dataKey="tmImpactBps" stroke="#5E7DFF" strokeWidth={1.8} fill="#5E7DFF" fillOpacity={0.1} dot={false} isAnimationActive={false} />

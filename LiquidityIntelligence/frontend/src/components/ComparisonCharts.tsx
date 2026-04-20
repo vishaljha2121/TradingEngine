@@ -1,5 +1,6 @@
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, CartesianGrid } from 'recharts';
 import type { ChartPoint } from '../types';
+import { ChartLegend } from './widgets/ChartLegend';
 
 interface ComparisonChartsProps {
   history: ChartPoint[];
@@ -70,6 +71,10 @@ export function ComparisonCharts({ history, chartType = 'both' }: ComparisonChar
             value={last ? `${last.spreadGap > 0 ? '+' : ''}${last.spreadGap.toFixed(2)} bps` : '--'}
             good={(last?.spreadGap ?? 0) <= 0}
             description="True Markets spread versus benchmark"
+            legend={[
+              { label: 'TrueMarkets advantage', color: '#5E7DFF', helper: 'tighter/equal spread' },
+              { label: 'Benchmark advantage', color: '#F28D3A', helper: 'TM wider' },
+            ]}
           />
           <div className="relative mt-2 h-[190px] min-h-[120px] flex-1">
             {history.length > 1 ? (
@@ -78,8 +83,8 @@ export function ComparisonCharts({ history, chartType = 'both' }: ComparisonChar
                 <ReferenceArea y1={0} y2={Math.max(spreadMax * 1.2, 2)} fill="#F28D3A" fillOpacity={0.03} />
                 <ReferenceArea y1={Math.min(spreadMin * 1.2, -1)} y2={0} fill="#5E7DFF" fillOpacity={0.03} />
                 <CartesianGrid horizontal={true} vertical={false} stroke="#252343" strokeDasharray="4 4" opacity={0.4} />
-                <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#6E7199', fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={{ stroke: '#252343', strokeWidth: 1 }} interval="preserveEnd" minTickGap={80} />
-                <YAxis domain={['dataMin - 0.5', 'dataMax + 0.5']} tick={{ fontSize: 10, fill: '#A7A9D2', fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={false} width={40} tickFormatter={(val) => val.toFixed(1)} />
+                <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#6E7199', fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={{ stroke: '#252343', strokeWidth: 1 }} interval="preserveEnd" minTickGap={80} label={{ value: 'Time', position: 'insideBottom', fill: '#6E7199', fontSize: 10, fontFamily: 'Inter', dy: 8 }} />
+                <YAxis domain={['dataMin - 0.5', 'dataMax + 0.5']} tick={{ fontSize: 10, fill: '#A7A9D2', fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={false} width={52} tickFormatter={(val) => val.toFixed(1)} label={{ value: 'Spread Delta (bps)', angle: -90, position: 'insideLeft', fill: '#6E7199', fontSize: 10, fontFamily: 'Inter', dy: 46 }} />
                 <ReferenceLine y={0} stroke="#E5EDF7" strokeWidth={1} strokeDasharray="6 6" opacity={0.5} label={{ value: 'Parity Baseline', position: 'insideTopLeft', fill: '#8EA0B8', fontSize: 10, fontFamily: 'ui-sans-serif', dy: -12 }} />
                 <Tooltip content={<SpreadTooltip />} cursor={{ stroke: '#6E7199', strokeWidth: 1, strokeDasharray: '3 3' }} />
                 <defs>
@@ -112,6 +117,10 @@ export function ComparisonCharts({ history, chartType = 'both' }: ComparisonChar
             value={last?.slipAdv != null ? `${last.slipAdv > 0 ? '+' : ''}${last.slipAdv.toFixed(2)} bps` : '--'}
             good={(last?.slipAdv ?? 0) >= 0}
             description="Ask-side VWAP savings versus benchmark"
+            legend={[
+              { label: 'TrueMarkets savings', color: '#5E7DFF', helper: 'positive edge' },
+              { label: 'Benchmark cheaper', color: '#F28D3A', helper: 'negative edge' },
+            ]}
           />
           <div className="relative mt-2 h-[190px] min-h-[120px] flex-1">
             {history.length > 1 ? (
@@ -121,8 +130,8 @@ export function ComparisonCharts({ history, chartType = 'both' }: ComparisonChar
                 <ReferenceArea y1={0} y2={Math.max(slipMax * 1.2, 2)} fill="#5E7DFF" fillOpacity={0.03} />
                 <ReferenceArea y1={Math.min(slipMin * 1.2, -1)} y2={0} fill="#F28D3A" fillOpacity={0.03} />
                 <CartesianGrid horizontal={true} vertical={false} stroke="#252343" strokeDasharray="4 4" opacity={0.4} />
-                <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#6E7199', fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={{ stroke: '#252343', strokeWidth: 1 }} interval="preserveEnd" minTickGap={80} />
-                <YAxis domain={['dataMin - 0.5', 'dataMax + 0.5']} tick={{ fontSize: 10, fill: '#A7A9D2', fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={false} width={40} tickFormatter={(val) => Math.abs(val).toFixed(1)} />
+                <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#6E7199', fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={{ stroke: '#252343', strokeWidth: 1 }} interval="preserveEnd" minTickGap={80} label={{ value: 'Time', position: 'insideBottom', fill: '#6E7199', fontSize: 10, fontFamily: 'Inter', dy: 8 }} />
+                <YAxis domain={['dataMin - 0.5', 'dataMax + 0.5']} tick={{ fontSize: 10, fill: '#A7A9D2', fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={false} width={52} tickFormatter={(val) => Math.abs(val).toFixed(1)} label={{ value: 'Slippage Advantage (bps)', angle: -90, position: 'insideLeft', fill: '#6E7199', fontSize: 10, fontFamily: 'Inter', dy: 64 }} />
                 <ReferenceLine y={0} stroke="#E5EDF7" strokeWidth={1} strokeDasharray="6 6" opacity={0.5} label={{ value: 'Parity Baseline', position: 'insideTopLeft', fill: '#8EA0B8', fontSize: 10, fontFamily: 'ui-sans-serif', dy: -12 }} />
                 <Tooltip content={<SlipTooltip />} cursor={{ stroke: '#6E7199', strokeWidth: 1, strokeDasharray: '3 3' }} />
                 <defs>
@@ -155,17 +164,20 @@ function ChartHeader({
   value,
   description,
   good,
+  legend,
 }: {
   label: string;
   value: string;
   description: string;
   good: boolean;
+  legend?: Array<{ label: string; color: string; helper?: string }>;
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-divider/40 pb-2">
       <div>
         <div className="text-[12px] font-semibold uppercase tracking-wide text-txt-primary">{label}</div>
         <div className="mt-0.5 text-[11px] text-txt-muted">{description}</div>
+        {legend && <div className="mt-2"><ChartLegend items={legend} /></div>}
       </div>
       <div className={`font-mono text-[15px] font-bold tabular-nums ${good ? 'text-positive' : 'text-negative'}`}>
         {value}
