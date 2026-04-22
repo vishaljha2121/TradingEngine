@@ -2,8 +2,6 @@
 
 LiquidityIntelligence is a real-time liquidity and execution-quality intelligence dashboard for a True Markets style venue. It compares a TrueMarkets order book against a public benchmark venue, computes execution and liquidity risk metrics, and converts those metrics into actionable operator recommendations.
 
-The project is best described as a route-confidence and liquidity-ops prototype. It is not a production matching engine and it should not be presented as a complete production smart order router. Its value is that it connects live market-data ingestion, deterministic analytics, execution simulation, and an institutional dashboard into one defensible demo.
-
 ## Table of Contents
 
 - [Product Thesis](#product-thesis)
