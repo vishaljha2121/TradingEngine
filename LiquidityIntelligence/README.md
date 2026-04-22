@@ -758,61 +758,6 @@ Then call `.listen(port, ...)`.
 
 For cloud deployment, rebuild `uSockets.a` inside the target Linux environment. Do not rely on a macOS-built static archive.
 
-## Known Limitations
-
-This section is part of the project's credibility. These are known limitations, not hidden defects.
-
-1. The backend TrueMarkets book is synthetic unless the optional TrueX UAT frontend feed is connected.
-2. The backend uses REST polling for benchmark venues, not exchange-native WebSocket depth streams.
-3. The lag metric is heuristic and synthetic, not measured production reaction latency.
-4. Only top-five levels are retained.
-5. Fees, rebates, hidden liquidity, queue position, reject rates, and fill probability are not modeled.
-6. Report history is in-memory and resets on refresh.
-7. Backend metric snapshots may be based on backend fallback even when the frontend is displaying optional TrueX UAT data.
-8. Current symbol support is focused on `BTC-PYUSD`.
-9. Production auth, persistence, alert delivery, deployment hardening, and observability are out of scope for the prototype.
-
-## Interview Defense Notes
-
-Strong concise framing:
-
-> LiquidityIntelligence is a route-confidence layer. It combines benchmark market data, a TrueMarkets live-or-fallback book, deterministic execution analytics, and an Action Center that tells an operator what to inspect next.
-
-What to be direct about:
-
-- The benchmark feed is live public data.
-- The backend TrueMarkets book is synthetic fallback data.
-- The optional TrueX UAT connection is attempted from the browser.
-- The project demonstrates architecture, product thinking, and execution-quality reasoning.
-- It does not claim production execution quality without production TrueMarkets data.
-
-Expected panel questions:
-
-### Why does this matter?
-
-Execution quality is not just whether a venue is up. Operators need to know whether a venue is tight, deep, fresh, and executable for the current order scenario. This dashboard turns those conditions into route confidence and next actions.
-
-### Why C++?
-
-C++ is a reasonable backend choice for market-data and low-latency systems because it gives explicit control over memory, threading, and networking. In this prototype the C++ service is intentionally small: fetch, normalize, compute lightweight metrics, and broadcast.
-
-### Why WebSockets?
-
-The UI is streaming and stateful. WebSockets let the backend push the latest book and metrics to the browser without repeated HTTP polling from the frontend.
-
-### Why are recommendations deterministic?
-
-For liquidity operations, explainability matters. A deterministic rule can cite spread delta, depth ratio, quote freshness, and execution edge. That is easier to defend than opaque generated text.
-
-### What would you improve over the summer?
-
-1. Replace public REST polling with streaming depth feeds.
-2. Connect canonical production TrueMarkets data.
-3. Persist history in a time-series store.
-4. Measure real reaction latency with synchronized timestamps.
-5. Calibrate recommendation thresholds against realized fills.
-6. Add multi-symbol and multi-venue coverage.
-7. Add production alerting and incident review workflows.
 
 ## License and Attribution
 
